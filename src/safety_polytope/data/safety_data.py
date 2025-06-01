@@ -106,7 +106,7 @@ def get_safety_dataloader(
     dataset_name_or_path,
     data,
     model=None,
-    format_fn=None,
+    format_fn=format_prompt_response_plain,
     batch_size=32,
     shuffle=True,
     dataset_type="prompt_response",

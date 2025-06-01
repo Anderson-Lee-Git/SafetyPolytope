@@ -1,8 +1,8 @@
 README.md
 setup.py
-src/sap.egg-info/PKG-INFO
-src/sap.egg-info/SOURCES.txt
-src/sap.egg-info/dependency_links.txt
-src/sap.egg-info/not-zip-safe
-src/sap.egg-info/requires.txt
-src/sap.egg-info/top_level.txt
+src/safety_polytope.egg-info/PKG-INFO
+src/safety_polytope.egg-info/SOURCES.txt
+src/safety_polytope.egg-info/dependency_links.txt
+src/safety_polytope.egg-info/not-zip-safe
+src/safety_polytope.egg-info/requires.txt
+src/safety_polytope.egg-info/top_level.txt

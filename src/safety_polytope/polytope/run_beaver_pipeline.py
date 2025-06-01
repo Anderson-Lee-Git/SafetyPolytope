@@ -36,6 +36,7 @@ def run_polytope_training(
     categories: List[str],
     mode: str,
     dataset_name: str,
+    model_path: str,
 ):
     """Run polytope training for each balanced dataset."""
     if mode == "slurm":
@@ -66,6 +67,7 @@ def run_polytope_training(
             "python",
             "src/safety_polytope/polytope/learn_polytope.py",
             f"dataset.hidden_states_path={all_paths}",
+            f"model_path={model_path}",
             "exp_ident=polytope_training",
             "--multirun",
         ]
@@ -92,6 +94,7 @@ def run_polytope_training(
                 "python",
                 "src/safety_polytope/polytope/learn_polytope.py",
                 f"dataset.hidden_states_path={hidden_states_path}",
+                f"model_path={model_path}",
                 f"exp_ident=polytope_training_{i}",
             ]
 
@@ -105,7 +108,7 @@ def save_hidden_states(args, categories: List[str], data_path: str):
     """Save hidden states for categories either sequentially or using slurm."""
     base_cmd = [
         "python",
-        "src/safety_polytope/interpret/save_hs.py",
+        "src/safety_polytope/data/save_hs.py",
         f"dataset={args.dataset}",
         f"model_path={args.model_path}",
         "exp_ident=save_beaver_states",
@@ -206,6 +209,7 @@ def main():
         categories[:-1],  # Exclude the last category (safety)
         args.mode,
         args.dataset,
+        args.model_path,
     )
 
 

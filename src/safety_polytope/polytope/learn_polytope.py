@@ -10,11 +10,7 @@ from omegaconf import DictConfig
 
 from safety_polytope.common.load_util import set_seed
 from safety_polytope.common.outputs import ModelResult, evaluate_model
-from safety_polytope.data.safety_data import (
-    get_dataset,
-    get_hidden_states_dataloader,
-    get_safety_dataloader,
-)
+from safety_polytope.data.safety_data import get_hidden_states_dataloader
 from safety_polytope.polytope.lm_constraints import (
     BaselineMLP,
     PolytopeConstraint,
@@ -135,23 +131,6 @@ def main(cfg: DictConfig):
             hidden_dim=cfg.feature_dim,
             num_edges=cfg.dataset.num_phi,
         )
-
-    train_data, test_data = get_dataset(
-        cfg.dataset.name_or_path,
-        dataset_cfg=cfg.dataset,
-    )
-    dataloader = get_safety_dataloader(
-        cfg.dataset.name_or_path,
-        train_data,
-        batch_size=cfg.batch_size,
-        dataset_type=cfg.dataset.dataset_type,
-    )
-    test_dataloader = get_safety_dataloader(
-        cfg.dataset.name_or_path,
-        test_data,
-        batch_size=cfg.batch_size,
-        dataset_type=cfg.dataset.dataset_type,
-    )
 
     optimizer = optim.Adam(safety_model.parameters(), lr=cfg.learning_rate)
     loss = train_model(

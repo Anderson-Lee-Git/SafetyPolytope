@@ -33,6 +33,9 @@ def get_mistral_instruction():
 
 
 def get_instruction(model_name_or_path):
+    if model_name_or_path is None:
+        return get_default_instruction()
+
     if "llama" in model_name_or_path:
         return get_llama2_instruction()
     elif "mistral" in model_name_or_path:

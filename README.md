@@ -1,6 +1,6 @@
 # Learning Safety Constraints for LLMs
 
-This repository contains the implementation of the paper Learning Safety Constraints for LLMs.
+This repository contains the implementation of the paper Learning Safety Constraints for Large Language Models (ICML2025 Spotlight).
 
 ## Installation
 
@@ -32,7 +32,7 @@ pip install -e .
 To run the BeaverTails pipeline with default settings:
 
 ```bash
-python src/crlhf/polytope/run_beaver_pipeline.py \
+python src/safety_polytope/polytope/run_beaver_pipeline.py \
     --model_path=Qwen/Qwen2-1.5B-Instruct \
     --mode=local \
     --reduced_data
