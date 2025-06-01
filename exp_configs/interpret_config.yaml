@@ -1,0 +1,37 @@
+defaults:
+  - _self_
+  - dataset: beaver_tails
+  - override hydra/launcher: submitit_slurm
+exp_ident: interpret
+model_path: Qwen/Qwen2-1.5B-Instruct
+total_datapoints: 999999999
+save_hidden_states: True
+batch_size: 1
+seed: 42
+layer_number: 20
+num_top: 10
+use_raw_violations: true
+temperature: 1000
+cat_data_path: None
+save_cat_data_path: ${hydra:runtime.cwd}/data/mi_data/mi_ce_data.pth
+save_hs_root_dir: ${hydra:runtime.cwd}/data/
+
+hydra:
+  run:
+    dir: outputs/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  job:
+    chdir: True
+  sweep:
+    dir: multirun/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  launcher:
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    timeout_min: 720
+    cpus_per_task: 1
+    tasks_per_node: 1
+    nodes: 1
+    name: ${exp_ident}
+    _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+    additional_parameters: {"gpus": "titan_rtx:1"}
+    mem_per_cpu: 128G
+    setup:
+      - '#SBATCH --requeue'

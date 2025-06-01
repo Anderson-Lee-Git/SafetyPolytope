@@ -1,0 +1,41 @@
+defaults:
+  - _self_
+  - dataset: beaver_tails
+  - override hydra/launcher: submitit_slurm
+  # - override hydra/sweeper: optuna
+exp_ident: polytope_hb
+model_path: None
+rejection_logit_path: None
+batch_size: 128
+seed: 42
+learning_rate: 0.01
+# Model type: either 'polytope' or 'mlp'
+model_type: polytope
+# Polytope-specific parameters
+entropy_weight: 1.0
+valid_edges_threshold: 0.0
+unsafe_weight: 2.0
+use_nonlinear: true
+entropy_assignment: true
+feature_dim: 16384
+f_l1_weight: 1.0
+phi_l1_weight: 0.0001
+margin: 1.0
+
+hydra:
+  run:
+    dir: outputs/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  launcher:
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    timeout_min: 1440
+    cpus_per_task: 1
+    tasks_per_node: 1
+    nodes: 1
+    name: ${exp_ident}
+    _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+    additional_parameters: {"gpus": "titan_rtx:1"}
+    mem_per_cpu: 128G
+    setup:
+      - '#SBATCH --requeue'

@@ -1,0 +1,25 @@
+defaults:
+  - dataset: beaver_tails
+  - override hydra/launcher: submitit_slurm
+
+exp_ident: test_model
+model_path: None
+seed: 42
+
+hydra:
+  run:
+    dir: outputs/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  launcher:
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    timeout_min: 7200
+    cpus_per_task: 1
+    tasks_per_node: 1
+    nodes: 1
+    name: ${hydra.job.name}
+    _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+    additional_parameters: {"gpus": "titan_rtx:1"}
+    mem_per_cpu: 128G
+    setup:
+      - '#SBATCH --requeue'

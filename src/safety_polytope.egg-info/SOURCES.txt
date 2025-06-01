@@ -1,0 +1,8 @@
+README.md
+setup.py
+src/sap.egg-info/PKG-INFO
+src/sap.egg-info/SOURCES.txt
+src/sap.egg-info/dependency_links.txt
+src/sap.egg-info/not-zip-safe
+src/sap.egg-info/requires.txt
+src/sap.egg-info/top_level.txt
