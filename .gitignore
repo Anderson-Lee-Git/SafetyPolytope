@@ -1,3 +1,4 @@
-data/
+hs_data/
 outputs/
 multirun/
+*.pyc
