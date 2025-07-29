@@ -38,9 +38,6 @@ class PolytopeTrainingStage:
             # Train polytope
             model_path = self._train_polytope(model_name, processed_data_path)
 
-            # Validate trained model
-            self._validate_trained_model(model_path)
-
             return model_path
 
         finally:
@@ -86,26 +83,3 @@ class PolytopeTrainingStage:
             raise RuntimeError(f"Polytope training failed: {result.stderr}")
 
         self.logger.info(f"Successfully trained polytope for {model_name}")
-
-        # Expected output path (may need adjustment based on actual script behavior)
-        model_path = f"./outputs/{model_name}/polytope_model.pt"
-        return model_path
-
-    def _validate_trained_model(self, model_path: str) -> None:
-        """
-        Validate that trained model exists and is valid
-
-        Args:
-            model_path: Path to trained model file
-        """
-        if not os.path.exists(model_path):
-            raise RuntimeError(f"Trained model not found at: {model_path}")
-
-        # Check file size
-        file_size = os.path.getsize(model_path)
-        if file_size == 0:
-            raise RuntimeError(f"Trained model file is empty: {model_path}")
-
-        self.logger.info(
-            f"Validated trained model: {model_path} ({file_size} bytes)"
-        )

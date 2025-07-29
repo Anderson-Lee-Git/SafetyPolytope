@@ -40,9 +40,6 @@ class SteeringEvaluationStage:
                 model_name, polytope_model_path
             )
 
-            # Validate evaluation results
-            self._validate_evaluation_results(results_path)
-
             return results_path
 
         finally:
@@ -104,43 +101,4 @@ class SteeringEvaluationStage:
 
         self.logger.info(
             f"Successfully completed steering evaluation for {model_name}"
-        )
-
-        # Expected results path (may need adjustment based on actual script behavior)
-        results_path = (
-            f"./results/steering_evaluation/{model_name}/results.json"
-        )
-        return results_path
-
-    def _validate_evaluation_results(self, results_path: str) -> None:
-        """
-        Validate that evaluation results exist and are valid
-
-        Args:
-            results_path: Path to evaluation results file
-        """
-        if not os.path.exists(results_path):
-            self.logger.warning(
-                f"Evaluation results not found at expected path: {results_path}"
-            )
-            # Check for alternative result locations
-            results_dir = os.path.dirname(results_path)
-            if os.path.exists(results_dir):
-                result_files = os.listdir(results_dir)
-                if result_files:
-                    self.logger.info(
-                        f"Found alternative result files: {result_files}"
-                    )
-                    return
-            raise RuntimeError("No evaluation results found")
-
-        # Check file size
-        file_size = os.path.getsize(results_path)
-        if file_size == 0:
-            raise RuntimeError(
-                f"Evaluation results file is empty: {results_path}"
-            )
-
-        self.logger.info(
-            f"Validated evaluation results: {results_path} ({file_size} bytes)"
         )

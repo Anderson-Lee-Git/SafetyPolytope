@@ -10,9 +10,7 @@ This script orchestrates the complete HarmBench experimental pipeline:
 5. Steering Evaluation: Evaluate polytope effectiveness
 
 Usage:
-    python run_harmbench_pipeline.py --config config/pipeline_config.yaml --model qwen_1.5b
-    python run_harmbench_pipeline.py --config config/pipeline_config.yaml --model qwen_1.5b --stages 1,2,3
-    python run_harmbench_pipeline.py --config config/pipeline_config.yaml --model all
+python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 2
 """
 
 import argparse

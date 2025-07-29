@@ -128,7 +128,7 @@ class HiddenStateExtractionStage:
         if isinstance(data, list):
             return len(data)
         elif isinstance(data, dict):
-            return 1
+            return len(data.keys())
         else:
             raise ValueError(
                 f"Unexpected test cases format in {test_cases_file}"
@@ -148,17 +148,7 @@ class HiddenStateExtractionStage:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Prepare arguments (replicating generate_completions_save.sh logic)
-        # TEMPORARY: Use mock script for testing due to HarmBench dependencies
-        mock_script_path = "/cluster/project/krause/chexin/safety_polytope/mock_generate_completions_save.py"
-        actual_script_path = (
-            f"{self.harmbench_path}/generate_completions_save.py"
-        )
-        script_to_use = (
-            mock_script_path
-            if os.path.exists(mock_script_path)
-            else actual_script_path
-        )
+        script_to_use = f"{self.harmbench_path}/generate_completions_save.py"
 
         cmd = [
             "python",
@@ -191,6 +181,8 @@ class HiddenStateExtractionStage:
         self.logger.info(
             f"Running local hidden state extraction for {algorithm} part {part}"
         )
+
+        self.logger.info(f"Running command: {' '.join(cmd)}")
 
         result = subprocess.run(
             cmd, cwd=self.harmbench_path, capture_output=True, text=True
@@ -295,7 +287,7 @@ class HiddenStateExtractionStage:
         while time.time() - start_time < timeout_seconds:
             # Check SLURM queue
             result = subprocess.run(
-                ["squeue", "-u", os.getenv("USER", "chexin")],
+                ["squeue", "-u", os.getenv("USER")],
                 capture_output=True,
                 text=True,
             )
