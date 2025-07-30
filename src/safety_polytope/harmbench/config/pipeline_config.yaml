@@ -18,6 +18,14 @@ models:
       lambda_weight: 4.0
       safe_violation_weight: 0.0001
       steer_layer: 20
+    polytope_training:
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      lambda_constraint: 1.0
+      margin: 60.0
+      num_phi: 50
     attack_methods: ["AutoPrompt", "GCG", "UAT"]
   - name: "mistral_8b"
     path: "mistralai/Ministral-8B-Instruct-2410"
@@ -26,6 +34,14 @@ models:
       lambda_weight: 0.25
       safe_violation_weight: 0
       steer_layer: 20
+    polytope_training:
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      lambda_constraint: 1.0
+      margin: 5.0
+      num_phi: 30
     attack_methods: ["GCG", "GBDA", "DirectRequest"]
   - name: "qwen_1.5b"
     path: "Qwen/Qwen2-1.5B-Instruct"
@@ -34,6 +50,14 @@ models:
       lambda_weight: 10
       safe_violation_weight: 5000
       steer_layer: 20
+    polytope_training:
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      lambda_constraint: 1.0
+      margin: 30.0
+      num_phi: 20
     attack_methods: ["AutoPrompt", "DirectRequest", "GBDA", "GCG"]
 
 # Slurm configuration
@@ -58,7 +82,8 @@ hidden_state_extraction:
 # Polytope training configuration
 polytope_training:
   seed: 42
-  num_epochs: 100
+  num_epochs: 1
+  num_phi: 30
   learning_rate: 0.01
   entropy_weight: 1.0
   unsafe_weight: 2.0

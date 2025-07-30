@@ -286,8 +286,12 @@ class HiddenStateExtractionStage:
 
         while time.time() - start_time < timeout_seconds:
             # Check SLURM queue
+            user = os.getenv("USER")
+            if user is None:
+                raise RuntimeError("USER environment variable not set")
+
             result = subprocess.run(
-                ["squeue", "-u", os.getenv("USER")],
+                ["squeue", "-u", user],
                 capture_output=True,
                 text=True,
             )

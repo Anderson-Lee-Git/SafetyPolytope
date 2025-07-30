@@ -102,3 +102,6 @@ class SteeringEvaluationStage:
         self.logger.info(
             f"Successfully completed steering evaluation for {model_name}"
         )
+
+        # Return path to evaluation results
+        return f"./results/steering_evaluation_{model_name}"

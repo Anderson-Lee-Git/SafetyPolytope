@@ -10,7 +10,7 @@ This script orchestrates the complete HarmBench experimental pipeline:
 5. Steering Evaluation: Evaluate polytope effectiveness
 
 Usage:
-python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 2
+python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 4
 """
 
 import argparse
@@ -150,12 +150,13 @@ class HarmBenchPipeline:
             try:
                 if processed_data_path is None:
                     # Assume default path if not from previous stage
+                    cwd = os.getcwd()
                     processed_data_path = (
-                        f"./hs_data/{model_name}/harmbench_processed.pt"
+                        f"{cwd}/hs_data/{model_name}/harmbench_processed.pt"
                     )
 
                 polytope_model_path = self.polytope_training.run(
-                    model_name, processed_data_path
+                    model_name, processed_data_path, model_config
                 )
                 self.logger.info(
                     f"Stage 4 completed successfully: {polytope_model_path}"

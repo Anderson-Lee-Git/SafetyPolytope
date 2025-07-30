@@ -40,7 +40,7 @@ class DataProcessingStage:
         os.chdir(self.safety_polytope_path)
 
         # Merge the hidden states parts
-        self._merge_hidden_states_parts(model_name, attack_methods)
+        # self._merge_hidden_states_parts(model_name, attack_methods)
 
         try:
             # Process hidden states
@@ -288,17 +288,25 @@ class DataProcessingStage:
             f"./hs_data/{model_name}/harmbench_processed.pt",
         ]
 
+        self.logger.info(f"Running command: {' '.join(cmd)}")
+        self.logger.info(f"Working directory: {os.getcwd()}")
+        self.logger.info(f"HARMBENCH_PATH: {self.harmbench_path}")
+
         result = subprocess.run(
             cmd, env=env, capture_output=True, text=True, timeout=600
         )  # 10 minute timeout
 
         if result.returncode != 0:
-            self.logger.error(
-                f"Hidden state processing failed: {result.stderr}"
-            )
-            raise RuntimeError(
-                f"Hidden state processing failed: {result.stderr}"
-            )
+            error_msg = f"Hidden state processing failed with return code {result.returncode}"
+            if result.stdout:
+                error_msg += f"\nSTDOUT:\n{result.stdout}"
+            if result.stderr:
+                error_msg += f"\nSTDERR:\n{result.stderr}"
+            else:
+                error_msg += "\nNo stderr output captured"
+
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
         self.logger.info(
             f"Successfully processed hidden states for {model_name}"
