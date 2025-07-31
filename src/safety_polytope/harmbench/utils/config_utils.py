@@ -3,6 +3,7 @@ Configuration utilities for HarmBench pipeline
 """
 
 import os
+from pathlib import Path
 from typing import Any, Dict
 
 import yaml
@@ -98,27 +99,81 @@ def validate_config(config: Dict[str, Any]) -> None:
             )
 
 
-def get_method_path(method: str, model_name: str, subdirectory: str) -> str:
+def get_harmbench_model_name(model_name: str) -> str:
     """
-    Get the correct path for a given attack method and subdirectory.
-    Some methods like DirectRequest and HumanJailbreaks use /default/
-    instead of /{model_name}/ in their folder structure.
+    Transform model name to HarmBench convention.
 
     Args:
-        method: Attack method name
-        model_name: Model name
-        subdirectory: Subdirectory (e.g., 'test_cases', 'hidden_states', 'completions')
+        model_name: Original model name
 
     Returns:
-        Correct path string
+        HarmBench-formatted model name
+    """
+    name_lower = model_name.lower()
+
+    if "llama" in name_lower:
+        return "safe_llama2_7b"
+    elif "mistral" in name_lower:
+        return "safe_mistral_8b"
+    elif "qwen" in name_lower:
+        return "safe_qwen_1.5b"
+    else:
+        return f"safe_{model_name}"
+
+
+def get_results_directory(
+    harmbench_path: Path,
+    method: str,
+    model_name: str,
+    transform_model_name: bool = True,
+) -> Path:
+    """
+    Get results directory path for HarmBench method and model.
+
+    Args:
+        harmbench_path: Base HarmBench path
+        method: Attack method name
+        model_name: Model name
+        transform_model_name: Whether to transform model name to HarmBench convention
+
+    Returns:
+        Results directory path
     """
     # Methods that use /default/ instead of /{model_name}/
     default_methods = ["DirectRequest", "HumanJailbreaks"]
 
     if method in default_methods:
-        return f"./results/{method}/default/{subdirectory}/"
+        return harmbench_path / "results" / method / "default"
     else:
-        return f"./results/{method}/{model_name}/{subdirectory}/"
+        if transform_model_name:
+            model_name = get_harmbench_model_name(model_name)
+        return harmbench_path / "results" / method / model_name
+
+
+def get_method_path(
+    harmbench_path: Path,
+    method: str,
+    model_name: str,
+    subdirectory: str,
+    transform_model_name: bool = True,
+) -> Path:
+    """
+    Get the complete path for a given attack method and subdirectory.
+
+    Args:
+        harmbench_path: Base HarmBench path
+        method: Attack method name
+        model_name: Model name
+        subdirectory: Subdirectory (e.g., 'test_cases', 'hidden_states', 'completions')
+        transform_model_name: Whether to transform model name to HarmBench convention
+
+    Returns:
+        Complete path
+    """
+    results_dir = get_results_directory(
+        harmbench_path, method, model_name, transform_model_name
+    )
+    return results_dir / subdirectory
 
 
 def setup_logging(config: Dict[str, Any]) -> None:

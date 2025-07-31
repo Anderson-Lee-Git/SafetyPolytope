@@ -10,7 +10,7 @@ This script orchestrates the complete HarmBench experimental pipeline:
 5. Steering Evaluation: Evaluate polytope effectiveness
 
 Usage:
-python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 4
+python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 5
 """
 
 import argparse
@@ -144,7 +144,6 @@ class HarmBenchPipeline:
                 raise
 
         # Stage 4: Polytope Training
-        polytope_model_path = None
         if 4 in stages:
             self.logger.info("=== Stage 4: Polytope Training ===")
             try:
@@ -155,12 +154,10 @@ class HarmBenchPipeline:
                         f"{cwd}/hs_data/{model_name}/harmbench_processed.pt"
                     )
 
-                polytope_model_path = self.polytope_training.run(
+                self.polytope_training.run(
                     model_name, processed_data_path, model_config
                 )
-                self.logger.info(
-                    f"Stage 4 completed successfully: {polytope_model_path}"
-                )
+                self.logger.info("Stage 4 completed successfully.")
             except Exception as e:
                 self.logger.error(f"Stage 4 failed: {e}")
                 raise
@@ -169,14 +166,17 @@ class HarmBenchPipeline:
         if 5 in stages:
             self.logger.info("=== Stage 5: Steering Evaluation ===")
             try:
-                if polytope_model_path is None:
-                    # Assume default path if not from previous stage
-                    polytope_model_path = (
-                        f"./outputs/{model_name}/polytope_model.pt"
-                    )
+                # Get polytope model path from config
+                polytope_model_path = model_config["steering"][
+                    "polytope_model_path"
+                ]
+                if polytope_model_path is None or not os.path.exists(
+                    polytope_model_path
+                ):
+                    raise ValueError("Polytope model path not found in config")
 
                 results_path = self.steering_evaluation.run(
-                    model_name, polytope_model_path
+                    model_name, polytope_model_path, model_config
                 )
                 self.logger.info(
                     f"Stage 5 completed successfully: {results_path}"

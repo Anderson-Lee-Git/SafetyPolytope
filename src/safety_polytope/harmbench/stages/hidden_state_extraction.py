@@ -10,7 +10,10 @@ import os
 import subprocess
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
+
+from ..utils.config_utils import get_method_path
 
 
 class HiddenStateExtractionStage:
@@ -55,20 +58,29 @@ class HiddenStateExtractionStage:
         """Extract hidden states for a specific algorithm using Python implementation"""
 
         # Determine paths based on algorithm type (replicating save_reps.sh logic)
-        if algorithm in ["DirectRequest", "HumanJailbreaks"]:
-            test_case_dir = f"./results/{algorithm}/default"
-            results_dir = f"./results/{algorithm}/default"
-        else:
-            test_case_dir = f"./results/{algorithm}/{model_name}"
-            results_dir = f"./results/{algorithm}/{model_name}"
+        harmbench_path = Path(".")  # Current directory in the context
+        test_case_dir = get_method_path(
+            harmbench_path,
+            algorithm,
+            model_name,
+            "test_cases",
+            transform_model_name=False,
+        )
+        results_dir = get_method_path(
+            harmbench_path,
+            algorithm,
+            model_name,
+            "",
+            transform_model_name=False,
+        )
 
         # Get test case count and calculate parts (replicating save_reps.sh logic)
-        test_cases_file = f"{test_case_dir}/test_cases/test_cases.json"
+        test_cases_file = test_case_dir / "test_cases.json"
 
-        if not os.path.exists(test_cases_file):
+        if not test_cases_file.exists():
             raise RuntimeError(f"Test cases file not found: {test_cases_file}")
 
-        total_cases = self._get_test_case_count(test_cases_file)
+        total_cases = self._get_test_case_count(str(test_cases_file))
         part_size = self.config.get("hidden_state_extraction", {}).get(
             "part_size", 100
         )
@@ -96,8 +108,8 @@ class HiddenStateExtractionStage:
                     layer_num,
                     part,
                     part_size,
-                    test_cases_file,
-                    results_dir,
+                    str(test_cases_file),
+                    str(results_dir),
                 )
                 job_names.append(job_name)
 
@@ -111,13 +123,13 @@ class HiddenStateExtractionStage:
                     layer_num,
                     part,
                     part_size,
-                    test_cases_file,
-                    results_dir,
+                    str(test_cases_file),
+                    str(results_dir),
                 )
 
         # Validate hidden state files
         self._validate_hidden_states(
-            algorithm, model_name, results_dir, layer_num
+            algorithm, model_name, str(results_dir), layer_num
         )
 
     def _get_test_case_count(self, test_cases_file: str) -> int:

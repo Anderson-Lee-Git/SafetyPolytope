@@ -15,9 +15,11 @@ models:
     path: "/cluster/project/infk/krause/chexin/github/llama/llama-2-7b-chat-hf"
     hidden_state_layer: 20
     steering:
+      polytope_model_path: "./outputs/llama2_7b/polytope_model.pt"
       lambda_weight: 4.0
       safe_violation_weight: 0.0001
       steer_layer: 20
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
     polytope_training:
       learning_rate: 0.01
       batch_size: 128
@@ -31,9 +33,11 @@ models:
     path: "mistralai/Ministral-8B-Instruct-2410"
     hidden_state_layer: 20
     steering:
+      polytope_model_path: "./outputs/mistral_8b/polytope_model.pt"
       lambda_weight: 0.25
       safe_violation_weight: 0
       steer_layer: 20
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
     polytope_training:
       learning_rate: 0.01
       batch_size: 128
@@ -47,9 +51,11 @@ models:
     path: "Qwen/Qwen2-1.5B-Instruct"
     hidden_state_layer: 20
     steering:
+      polytope_model_path: "/cluster/project/krause/chexin/safety_polytope/outputs/beaver_tails/2025-07-30/harmbench_polytope_qwen_1.5b-15-02-30/weights.pth"
       lambda_weight: 10
       safe_violation_weight: 5000
       steer_layer: 20
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
     polytope_training:
       learning_rate: 0.01
       batch_size: 128
@@ -88,6 +94,19 @@ polytope_training:
   entropy_weight: 1.0
   unsafe_weight: 2.0
   margin: 1.0
+
+# Steering evaluation configuration
+steering_evaluation:
+  part_size: 500
+  max_new_tokens: 512
+  execution_mode: "slurm"  # "local" or "slurm"
+  incremental_update: false
+
+# Evaluation configuration
+evaluation:
+  cls_path: "cais/HarmBench-Llama-2-13b-cls"
+  behavior_dataset: "./data/behavior_datasets/harmbench_behaviors_text_all.csv"
+  include_advbench_metric: true
 
 # Logging configuration
 logging:

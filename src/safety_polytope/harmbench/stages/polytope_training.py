@@ -22,7 +22,7 @@ class PolytopeTrainingStage:
         model_name: str,
         processed_data_path: str,
         model_config: Optional[Dict[str, Any]] = None,
-    ) -> str:
+    ) -> None:
         """
         Train polytope constraints
 
@@ -31,8 +31,6 @@ class PolytopeTrainingStage:
             processed_data_path: Path to processed hidden state data
             model_config: Model-specific configuration containing polytope training hyperparameters
 
-        Returns:
-            Path to trained polytope model
         """
         self.logger.info(f"Starting polytope training for {model_name}")
 
@@ -42,11 +40,7 @@ class PolytopeTrainingStage:
 
         try:
             # Train polytope
-            model_path = self._train_polytope(
-                model_name, processed_data_path, model_config
-            )
-
-            return model_path
+            self._train_polytope(model_name, processed_data_path, model_config)
 
         finally:
             os.chdir(original_dir)
@@ -56,7 +50,7 @@ class PolytopeTrainingStage:
         model_name: str,
         processed_data_path: str,
         model_config: Optional[Dict[str, Any]] = None,
-    ) -> str:
+    ) -> None:
         """
         Train polytope using learn_polytope.py
 
@@ -65,8 +59,6 @@ class PolytopeTrainingStage:
             processed_data_path: Path to processed data
             model_config: Model-specific configuration containing polytope training hyperparameters
 
-        Returns:
-            Path to trained model
         """
         self.logger.info(f"Training polytope for {model_name}")
 
@@ -118,6 +110,3 @@ class PolytopeTrainingStage:
             raise RuntimeError(f"Polytope training failed: {result.stderr}")
 
         self.logger.info(f"Successfully trained polytope for {model_name}")
-
-        # Return path to trained model
-        return f"./outputs/{model_name}/polytope_model.pt"

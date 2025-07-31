@@ -8,9 +8,12 @@ import logging
 import os
 import re
 import subprocess
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import torch
+
+from ..utils.config_utils import get_method_path
 
 
 class DataProcessingStage:
@@ -69,24 +72,20 @@ class DataProcessingStage:
         Returns:
             List of hidden states directory paths to check
         """
-        root = os.path.join(self.harmbench_path, "results")
+        harmbench_path = Path(self.harmbench_path)
         directories = []
 
-        # Methods that use "default" subdirectory
-        methods_with_default = ["DirectRequest", "HumanJailbreaks"]
-
         for method in attack_methods:
-            if method in methods_with_default:
-                hidden_states_dir = os.path.join(
-                    root, method, "default", "hidden_states"
-                )
-            else:
-                hidden_states_dir = os.path.join(
-                    root, method, model_name, "hidden_states"
-                )
+            hidden_states_dir = get_method_path(
+                harmbench_path,
+                method,
+                model_name,
+                "hidden_states",
+                transform_model_name=False,
+            )
 
-            if os.path.exists(hidden_states_dir):
-                directories.append(hidden_states_dir)
+            if hidden_states_dir.exists():
+                directories.append(str(hidden_states_dir))
 
         return directories
 
