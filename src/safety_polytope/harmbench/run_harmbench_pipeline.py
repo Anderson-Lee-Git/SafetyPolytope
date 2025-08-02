@@ -4,13 +4,12 @@ HarmBench Pipeline Orchestrator
 
 This script orchestrates the complete HarmBench experimental pipeline:
 1. Attack Generation: Generate adversarial test cases
-2. Hidden State Extraction: Extract hidden states from model responses
-3. Data Processing: Process and consolidate hidden states
-4. Polytope Training: Train safety polytope constraints
-5. Steering Evaluation: Evaluate polytope effectiveness
+2. Hidden State Extraction and Processing: Extract and process hidden states
+3. Polytope Training: Train safety polytope constraints
+4. Steering Evaluation: Evaluate polytope effectiveness
 
 Usage:
-python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 5
+python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safety_polytope/harmbench/config/pipeline_config.yaml --model qwen_1.5b --stages 2,3
 """
 
 import argparse
@@ -25,11 +24,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 from safety_polytope.harmbench.stages.attack_generation import (  # noqa: E402
     AttackGenerationStage,
 )
-from safety_polytope.harmbench.stages.data_processing import (  # noqa: E402
-    DataProcessingStage,
-)
-from safety_polytope.harmbench.stages.hidden_state_extraction import (  # noqa: E402
-    HiddenStateExtractionStage,
+from safety_polytope.harmbench.stages.hidden_state_extraction_and_processing import (  # noqa: E402
+    HiddenStateExtractionAndProcessingStage,
 )
 from safety_polytope.harmbench.stages.polytope_training import (  # noqa: E402
     PolytopeTrainingStage,
@@ -69,11 +65,10 @@ class HarmBenchPipeline:
         self.attack_generation = AttackGenerationStage(
             self.config, self.harmbench_path
         )
-        self.hidden_state_extraction = HiddenStateExtractionStage(
-            self.config, self.harmbench_path
-        )
-        self.data_processing = DataProcessingStage(
-            self.config, self.safety_polytope_path
+        self.hidden_state_extraction_and_processing = (
+            HiddenStateExtractionAndProcessingStage(
+                self.config, self.harmbench_path, self.safety_polytope_path
+            )
         )
         self.polytope_training = PolytopeTrainingStage(
             self.config, self.safety_polytope_path
@@ -88,10 +83,10 @@ class HarmBenchPipeline:
 
         Args:
             model_name: Name of the model to process
-            stages: List of stage numbers to run (1-5). If None, runs all stages.
+            stages: List of stage numbers to run (1-4). If None, runs all stages.
         """
         if stages is None:
-            stages = [1, 2, 3, 4, 5]
+            stages = [1, 2, 3, 4]
 
         self.logger.info(
             f"Starting HarmBench pipeline for {model_name} with stages {stages}"
@@ -116,55 +111,46 @@ class HarmBenchPipeline:
                 self.logger.error(f"Stage 1 failed: {e}")
                 raise
 
-        # Stage 2: Hidden State Extraction
+        # Stage 2: Hidden State Extraction and Processing
+        processed_data_path = None
         if 2 in stages:
-            self.logger.info("=== Stage 2: Hidden State Extraction ===")
+            self.logger.info(
+                "=== Stage 2: Hidden State Extraction and Processing ==="
+            )
             try:
-                self.hidden_state_extraction.run(
-                    model_name, attack_methods, hidden_state_layer
+                processed_data_path = (
+                    self.hidden_state_extraction_and_processing.run(
+                        model_name, attack_methods, hidden_state_layer
+                    )
                 )
-                self.logger.info("Stage 2 completed successfully")
+                self.logger.info(
+                    f"Stage 2 completed successfully: {processed_data_path}"
+                )
             except Exception as e:
                 self.logger.error(f"Stage 2 failed: {e}")
                 raise
 
-        # Stage 3: Data Processing
-        processed_data_path = None
+        # Stage 3: Polytope Training
         if 3 in stages:
-            self.logger.info("=== Stage 3: Data Processing ===")
-            try:
-                processed_data_path = self.data_processing.run(
-                    model_name, attack_methods
-                )
-                self.logger.info(
-                    f"Stage 3 completed successfully: {processed_data_path}"
-                )
-            except Exception as e:
-                self.logger.error(f"Stage 3 failed: {e}")
-                raise
-
-        # Stage 4: Polytope Training
-        if 4 in stages:
-            self.logger.info("=== Stage 4: Polytope Training ===")
+            self.logger.info("=== Stage 3: Polytope Training ===")
             try:
                 if processed_data_path is None:
                     # Assume default path if not from previous stage
-                    cwd = os.getcwd()
-                    processed_data_path = (
-                        f"{cwd}/hs_data/{model_name}/harmbench_processed.pt"
-                    )
+                    processed_data_path = model_config["polytope_training"][
+                        "hidden_states_path"
+                    ]
 
                 self.polytope_training.run(
                     model_name, processed_data_path, model_config
                 )
-                self.logger.info("Stage 4 completed successfully.")
+                self.logger.info("Stage 3 completed successfully.")
             except Exception as e:
-                self.logger.error(f"Stage 4 failed: {e}")
+                self.logger.error(f"Stage 3 failed: {e}")
                 raise
 
-        # Stage 5: Steering Evaluation
-        if 5 in stages:
-            self.logger.info("=== Stage 5: Steering Evaluation ===")
+        # Stage 4: Steering Evaluation
+        if 4 in stages:
+            self.logger.info("=== Stage 4: Steering Evaluation ===")
             try:
                 # Get polytope model path from config
                 polytope_model_path = model_config["steering"][
@@ -179,10 +165,10 @@ class HarmBenchPipeline:
                     model_name, polytope_model_path, model_config
                 )
                 self.logger.info(
-                    f"Stage 5 completed successfully: {results_path}"
+                    f"Stage 4 completed successfully: {results_path}"
                 )
             except Exception as e:
-                self.logger.error(f"Stage 5 failed: {e}")
+                self.logger.error(f"Stage 4 failed: {e}")
                 raise
 
         self.logger.info(f"Pipeline completed successfully for {model_name}")
@@ -192,7 +178,7 @@ class HarmBenchPipeline:
         Run pipeline for all configured models
 
         Args:
-            stages: List of stage numbers to run (1-5). If None, runs all stages.
+            stages: List of stage numbers to run (1-4). If None, runs all stages.
         """
         models = [model["name"] for model in self.config["models"]]
         self.logger.info(f"Running pipeline for all models: {models}")
@@ -221,7 +207,7 @@ def main():
     )
     parser.add_argument(
         "--stages",
-        help="Comma-separated list of stages to run (1-5). Default: all stages",
+        help="Comma-separated list of stages to run (1-4). Default: all stages",
     )
 
     args = parser.parse_args()
@@ -232,7 +218,7 @@ def main():
         try:
             stages = [int(s.strip()) for s in args.stages.split(",")]
             for stage in stages:
-                if stage not in [1, 2, 3, 4, 5]:
+                if stage not in [1, 2, 3, 4]:
                     raise ValueError(f"Invalid stage number: {stage}")
         except ValueError as e:
             print(f"Error parsing stages: {e}")

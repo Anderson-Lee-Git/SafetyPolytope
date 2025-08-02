@@ -99,8 +99,12 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
         self.is_new_generation = True
 
     def _apply_backup_response(
-        self, logits, safe_mask, num_logits_to_keep, start_time
-    ):
+        self,
+        logits: torch.Tensor,
+        safe_mask: torch.Tensor,
+        num_logits_to_keep: int,
+        start_time: float,
+    ) -> torch.Tensor:
         """Apply backup response logits to unsafe samples.
 
         Args:
@@ -135,7 +139,12 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             self.tokens_steered = 0
         return logits
 
-    def _apply_optimization(self, hidden_states, safe_mask, start_time):
+    def _apply_optimization(
+        self,
+        hidden_states: torch.Tensor,
+        safe_mask: torch.Tensor,
+        start_time: float,
+    ) -> torch.Tensor:
         """Apply hidden state optimization for unsafe samples."""
         print("Starting optimization...")
         optimized_states = self.optimize_hidden_states(
@@ -617,6 +626,8 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
                         + self.safe_violation_weight * safety_violation
                         + self.lambda_weight * positive_violation_penalty
                     )
+
+                    print(f"Loss: {loss.item()}")
 
                     # Check if loss is inf or NaN before backpropagation
                     if torch.isinf(loss).any() or torch.isnan(loss).any():

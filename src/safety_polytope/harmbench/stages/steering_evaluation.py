@@ -227,6 +227,7 @@ class SteeringEvaluationStage:
             self.harmbench_path / "configs" / "model_configs" / "models.yaml"
         )
 
+        # TODO: Should update hyperparameters like lambda_weight, safe_violation_weight, etc.
         # Read current config
         with open(config_path, "r") as f:
             harmbench_configs = yaml.safe_load(f)
@@ -448,7 +449,7 @@ class SteeringEvaluationStage:
                 self.command_builder.run_local_evaluation(cmd, method)
             else:
                 job_id = self.command_builder.run_slurm_evaluation(
-                    cmd, method, timestamp
+                    cmd, method, timestamp, completion_file
                 )
                 evaluation_job_ids.append(job_id)
 

@@ -74,22 +74,31 @@ class PolytopeTrainingStage:
                 f"Using global polytope training config for {model_name}"
             )
 
+        execution_mode = self.config.get("polytope_training", {}).get(
+            "execution_mode", "slurm"
+        )
+
         # Prepare command arguments with model-specific hyperparameters using Hydra override syntax
         cmd = [
             "python",
             "src/safety_polytope/polytope/learn_polytope.py",
+            "dataset=harmbench",
             f"dataset.hidden_states_path={processed_data_path}",
-            f'seed={self.config.get("polytope_training", {}).get("seed", 42)}',
+            f'seed={self.config.get("polytope_training", {}).get("seed", 5)}',
             f'dataset.num_epochs={self.config.get("polytope_training", {}).get("num_epochs", 1)}',
             f'dataset.num_phi={training_config.get("num_phi", 30)}',
             f'learning_rate={training_config.get("learning_rate", 0.01)}',
             f'batch_size={training_config.get("batch_size", 128)}',
             f'feature_dim={training_config.get("feature_dim", 16384)}',
             f'entropy_weight={training_config.get("entropy_weight", 1.0)}',
+            f'unsafe_weight={training_config.get("unsafe_weight", 3.0)}',
             f'f_l1_weight={training_config.get("lambda_constraint", 1.0)}',
             f'margin={training_config.get("margin", 1.0)}',
             f"exp_ident=harmbench_polytope_{model_name}",
         ]
+
+        if execution_mode == "slurm":
+            cmd.append("--multirun")
 
         self.logger.info(
             f"Training with hyperparameters: learning_rate={training_config.get('learning_rate', 0.01)}, "

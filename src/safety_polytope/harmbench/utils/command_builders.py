@@ -8,7 +8,7 @@ and evaluation tasks, including both local and Slurm execution modes.
 import logging
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 class CommandBuilder:
@@ -84,12 +84,11 @@ class CommandBuilder:
         self, completion_file: Path, output_file: Path
     ) -> List[str]:
         """Build command for evaluating completions."""
+        # Use explicit bash shell for conda activation
         cmd = [
-            "scripts/evaluate_completions.sh",
-            self.cls_path,
-            self.behavior_dataset,
-            str(completion_file),
-            str(output_file),
+            "/bin/bash",
+            "-c",
+            f"cd {self.harmbench_path} && source ~/miniconda3/etc/profile.d/conda.sh && conda activate crlhf && python evaluate_completions.py --cls_path {self.cls_path} --behaviors_path {self.behavior_dataset} --completions_path {completion_file} --save_path {output_file} --include_advbench_metric",
         ]
         return cmd
 
@@ -178,21 +177,57 @@ class CommandBuilder:
         self.logger.info(f"Successfully evaluated completions for {method}")
 
     def run_slurm_evaluation(
-        self, cmd: List[str], method: str, timestamp: str
+        self,
+        cmd: List[str],
+        method: str,
+        timestamp: str,
+        completion_file: Optional[Path] = None,
     ) -> str:
         """Run evaluation using slurm sbatch.
 
         Returns:
             Job ID of submitted job"""
         job_name = f"evaluate_{method}"
+
+        # Extract model name from completion file path
+        if completion_file:
+            model_name = self._extract_model_name_from_path(completion_file)
+        else:
+            # Fallback: try to extract from command string
+            cmd_str = " ".join(cmd)
+            if "--completions_path" in cmd_str:
+                path_start = cmd_str.find("--completions_path") + len(
+                    "--completions_path "
+                )
+                path_end = cmd_str.find(" ", path_start)
+                if path_end == -1:
+                    path_end = len(cmd_str)
+                completion_path_str = cmd_str[path_start:path_end]
+                model_name = self._extract_model_name_from_path(
+                    Path(completion_path_str)
+                )
+            else:
+                model_name = "unknown_model"
+
+        # Create model-specific subdirectory
         output_dir = (
             self.harmbench_path
             / "slurm_logs"
             / "evaluate_completions"
             / method
+            / model_name
         )
         output_dir.mkdir(parents=True, exist_ok=True)
-        log_file = output_dir / f"evaluation_{timestamp}.log"
+        log_file = output_dir / f"{model_name}_{timestamp}_{method}.log"
+
+        # Extract the bash command from cmd for --wrap
+        wrap_command = (
+            cmd[2]
+            if len(cmd) >= 3
+            and cmd[0] in ["/bin/bash", "bash"]
+            and cmd[1] == "-c"
+            else " ".join(cmd)
+        )
 
         sbatch_cmd = [
             "sbatch",
@@ -205,7 +240,9 @@ class CommandBuilder:
             "--mem-per-cpu=128G",
             "--gres=gpumem:40g",
             "--parsable",
-        ] + cmd
+            "--wrap",
+            f"/bin/bash -c '{wrap_command}'",  # Explicitly use bash shell
+        ]
 
         self.logger.info(
             f"Submitting evaluation job for {method}: {' '.join(sbatch_cmd)}"
@@ -224,3 +261,45 @@ class CommandBuilder:
         self.logger.info(f"Submitted evaluation job {job_id} for {method}")
 
         return job_id
+
+    def _extract_model_name_from_path(self, completion_file_path: Path) -> str:
+        """Extract model name from completion file path.
+
+        Expected path structure: .../method/model_name/completions/model_name_timestamp_merged.json
+        or .../method/default/completions/model_name_timestamp_merged.json
+
+        Args:
+            completion_file_path: Path to completion file
+
+        Returns:
+            Model name extracted from path
+        """
+        try:
+            # Get the filename and extract model name from it
+            filename = completion_file_path.name
+            if "_merged.json" in filename:
+                # Extract model name from filename: "safe_qwen_1.5b_20250731_064756_merged.json"
+                # Split by underscore and take first parts until we hit a date pattern
+                parts = filename.split("_")
+                model_parts = []
+                for part in parts:
+                    if (
+                        part.isdigit() and len(part) == 8
+                    ):  # Date pattern like 20250731
+                        break
+                    model_parts.append(part)
+                if model_parts:
+                    return "_".join(model_parts)
+
+            # Fallback: use parent directory name if it's not "completions" or "default"
+            parent_dirs = completion_file_path.parts
+            for i, part in enumerate(reversed(parent_dirs)):
+                if part not in ["completions", "default"] and i > 0:
+                    return part
+            # Final fallback
+            return "unknown_model"
+        except Exception as e:
+            self.logger.warning(
+                f"Could not extract model name from {completion_file_path}: {e}"
+            )
+            return "unknown_model"
