@@ -12,14 +12,13 @@ pipeline:
 # Models to test
 models:
   - name: "llama2_7b"
-    path: "/cluster/project/infk/krause/chexin/github/llama/llama-2-7b-chat-hf"
+    path: "meta-llama/Llama-2-7b"
     hidden_state_layer: 20
     steering:
-      polytope_model_path: "/cluster/project/krause/chexin/safety_polytope/multirun/harmbench/2025-08-01/harmbench_polytope_llama2_7b-15-53-37/0/weights.pth"
-      # evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
-      evaluation_methods: ["GCG"]
+      polytope_model_path: "Your_Polytope_Model_Path"
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
     polytope_training:
-      hidden_states_path: "/cluster/project/krause/chexin/safety_polytope/hs_data/llama2_7b/harmbench_processed.pt"
+      hidden_states_path: "Your_Hidden_States_Path"
       learning_rate: 0.01
       batch_size: 128
       feature_dim: 16384
@@ -32,32 +31,32 @@ models:
     path: "mistralai/Ministral-8B-Instruct-2410"
     hidden_state_layer: 20
     steering:
-      polytope_model_path: "/cluster/project/krause/chexin/safety_polytope/multirun/harmbench/2025-08-02/tune_mistral-08-24-13/6/weights.pth"
+      polytope_model_path: "Your_Polytope_Model_Path"
       evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
     polytope_training:
-      hidden_states_path: "/cluster/project/krause/chexin/safety_polytope/hs_data/mistral_8b/harmbench_processed.pt"
+      hidden_states_path: "Your_Hidden_States_Path"
       learning_rate: 0.01
       batch_size: 128
       feature_dim: 16384
       entropy_weight: 1.0
-      unsafe_weight: 3.0
+      unsafe_weight: 2.0
       lambda_constraint: 1.0
-      margin: 5.0
+      margin: 20
       num_phi: 30
     attack_methods: ["GCG", "GBDA", "DirectRequest"]
   - name: "qwen_1.5b"
     path: "Qwen/Qwen2-1.5B-Instruct"
     hidden_state_layer: 20
     steering:
-      polytope_model_path: "/cluster/project/krause/chexin/safety_polytope/multirun/harmbench/2025-08-01/tune_qwen-15-08-03/14/weights.pth"
+      polytope_model_path: "Your_Polytope_Model_Path"
       evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
     polytope_training:
-      hidden_states_path: "/cluster/project/krause/chexin/safety_polytope/hs_data/qwen_1.5b/hb_qwen_l20.pth"
+      hidden_states_path: "Your_Hidden_States_Path"
       learning_rate: 0.01
       batch_size: 128
       feature_dim: 16384
       entropy_weight: 1.0
-      unsafe_weight: 5.0
+      unsafe_weight: 4.0
       lambda_constraint: 1.0
       margin: 30.0
       num_phi: 50

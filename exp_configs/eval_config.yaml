@@ -18,13 +18,10 @@ lambda_weight: 1.0
 steer_first_n_tokens: 20
 safe_violation_weight: 0.0001
 
-# GSM8K specific configurations
 max_input_length: 2048
 max_new_tokens: 256
 top_p: 0.95
 temperature: 0.8
-gsm8k_dir: ${hydra:runtime.cwd}/data/gsm8k_data
-output_dir: ${hydra.run.dir}/gsm8k_results
 
 hydra:
   run:
