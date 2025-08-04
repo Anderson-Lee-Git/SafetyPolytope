@@ -38,7 +38,10 @@ def run_polytope_training(
     dataset_name: str,
     model_path: str,
 ):
-    """Run polytope training for each balanced dataset."""
+    """Run polytope training for each balanced dataset. If one wishes to train
+    on the full dataset, one can first merge all the category hidden state
+    files into a single file, and then run polytope training on that file."""
+
     if mode == "slurm":
         # Collect all valid hidden states paths
         valid_paths = []

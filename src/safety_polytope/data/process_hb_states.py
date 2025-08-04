@@ -82,6 +82,13 @@ def process_method(root, method, model, max_tokens=None):
 
     # Sort files by modification time (most recent first) and take the first
     # one
+    if len(hidden_states_files) > 1:
+        print(
+            f"Warning: Multiple hidden states files found in {hidden_states_dir}. Using the most recent one."
+        )
+        print(f"Hidden states files: {hidden_states_files}")
+        print(f"Using file: {hidden_states_files[0]}")
+
     hidden_states_file = max(hidden_states_files, key=os.path.getmtime)
 
     hidden_states = load_hidden_states(hidden_states_file)

@@ -28,6 +28,7 @@ setuptools.setup(
         "transformers==4.45.2",
         "tueplots==0.0.17",
         "umap-learn==0.5.6",
+        "vllm==0.6.3.post1",
         "hydra-submitit-launcher==1.2.0",
     ],
     extras_require={

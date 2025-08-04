@@ -2,3 +2,6 @@ hs_data/
 outputs/
 multirun/
 *.pyc
+.claude/
+CLAUDE.md
+logs/

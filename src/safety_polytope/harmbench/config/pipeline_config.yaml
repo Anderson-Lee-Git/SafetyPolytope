@@ -1,0 +1,109 @@
+# HarmBench Pipeline Configuration
+pipeline:
+  name: "harmbench_experiment"
+  output_dir: "./outputs/harmbench_experiments"
+  harmbench_path: "/cluster/project/krause/chexin/github/HarmBench"
+  safety_polytope_path: "/cluster/project/krause/chexin/safety_polytope"
+  # HarmBench run_pipeline.py settings
+  base_save_dir: "./results"
+  base_log_dir: "./slurm_logs"
+  cls_path: "cais/HarmBench-Llama-2-13b-cls"
+
+# Models to test
+models:
+  - name: "llama2_7b"
+    path: "meta-llama/Llama-2-7b"
+    hidden_state_layer: 20
+    steering:
+      polytope_model_path: "Your_Polytope_Model_Path"
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
+    polytope_training:
+      hidden_states_path: "Your_Hidden_States_Path"
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      lambda_constraint: 1.0
+      margin: 60.0
+      num_phi: 50
+    attack_methods: ["AutoPrompt", "GCG", "UAT"]
+  - name: "mistral_8b"
+    path: "mistralai/Ministral-8B-Instruct-2410"
+    hidden_state_layer: 20
+    steering:
+      polytope_model_path: "Your_Polytope_Model_Path"
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
+    polytope_training:
+      hidden_states_path: "Your_Hidden_States_Path"
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      unsafe_weight: 2.0
+      lambda_constraint: 1.0
+      margin: 20
+      num_phi: 30
+    attack_methods: ["GCG", "GBDA", "DirectRequest"]
+  - name: "qwen_1.5b"
+    path: "Qwen/Qwen2-1.5B-Instruct"
+    hidden_state_layer: 20
+    steering:
+      polytope_model_path: "Your_Polytope_Model_Path"
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
+    polytope_training:
+      hidden_states_path: "Your_Hidden_States_Path"
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      unsafe_weight: 4.0
+      lambda_constraint: 1.0
+      margin: 30.0
+      num_phi: 50
+    attack_methods: ["AutoPrompt", "DirectRequest", "GBDA", "GCG"]
+
+# Slurm configuration
+slurm:
+  partition: "gpu"
+  time_limit: "24:00:00"
+  job_timeout_minutes: 240  # How long to wait for jobs to complete
+  check_interval_seconds: 60  # How often to check job status
+
+# Attack generation settings (Stage 1 - Complete HarmBench Pipeline)
+attack_generation:
+  behavior_dataset: "./data/behavior_datasets/harmbench_behaviors_text_val.csv"
+  execution_mode: "slurm"  # Mode for run_pipeline.py
+
+# Hidden state extraction settings
+hidden_state_extraction:
+  layer_number: 20
+  part_size: 100  # Process in chunks of 100 test cases
+  max_new_tokens: 512
+  execution_mode: "slurm"  # or "slurm" - use local for testing
+
+# Polytope training configuration
+polytope_training:
+  seed: 42
+  num_epochs: 1
+  num_phi: 30
+  learning_rate: 0.01
+  entropy_weight: 1.0
+  unsafe_weight: 2.0
+  margin: 1.0
+  execution_mode: "slurm"  # "local" or "slurm"
+
+# Steering evaluation configuration
+steering_evaluation:
+  part_size: 500
+  execution_mode: "slurm"  # "local" or "slurm"
+
+# Evaluation configuration
+evaluation:
+  cls_path: "cais/HarmBench-Llama-2-13b-cls"
+  behavior_dataset: "./data/behavior_datasets/harmbench_behaviors_text_all.csv"
+  include_advbench_metric: true
+
+# Logging configuration
+logging:
+  level: "INFO"
+  log_dir: "./logs/harmbench_pipeline"
