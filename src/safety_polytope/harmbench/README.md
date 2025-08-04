@@ -79,6 +79,7 @@ python src/safety_polytope/harmbench/run_harmbench_pipeline.py \
 1. Training the polytope with both adversarial datasets AND standard language generation datasets
 2. Using the polytope as a rejection classifier rather than for direct steering
 3. Adjusting the `margin` and `unsafe_weight` parameters in the config for your specific use case
+4. Reducing the `lambda_weight` and `safe_violation_weight` in Harmbench's `models.yaml` configuration
 
 ## Configuration
 Edit `config/pipeline_config.yaml` to:
