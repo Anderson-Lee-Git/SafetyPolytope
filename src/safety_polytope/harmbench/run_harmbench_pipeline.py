@@ -161,12 +161,10 @@ class HarmBenchPipeline:
                 ):
                     raise ValueError("Polytope model path not found in config")
 
-                results_path = self.steering_evaluation.run(
+                self.steering_evaluation.run(
                     model_name, polytope_model_path, model_config
                 )
-                self.logger.info(
-                    f"Stage 4 completed successfully: {results_path}"
-                )
+                self.logger.info("Stage 4 completed successfully")
             except Exception as e:
                 self.logger.error(f"Stage 4 failed: {e}")
                 raise
