@@ -40,8 +40,9 @@ python src/safety_polytope/polytope/run_beaver_pipeline.py \
 
 The `--reduced_data` flag will run the pipeline with reduced data. Remove this flag if you want to train on the full dataset.
 
-## TODOs
-- [ ] Add Harmbench pipeline code
+## HarmBench Experiments
+
+For instructions on replicating the HarmBench experiments from the paper, please see [src/safety_polytope/harmbench/README.md](https://github.com/lasgroup/SafetyPolytope/tree/main/src/safety_polytope/harmbench/README.md).
 
 ## License
 MIT License.
