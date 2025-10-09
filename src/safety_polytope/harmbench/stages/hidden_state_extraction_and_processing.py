@@ -3,7 +3,7 @@ Merged Stage 2&3: Hidden State Extraction and Processing
 Directly calls HarmBench's save_reps.sh and process_hb_states.py for exact reproducibility.
 """
 
-import logging
+from loguru import logger
 import os
 import subprocess
 import time
@@ -22,7 +22,7 @@ class HiddenStateExtractionAndProcessingStage:
         self.config = config
         self.harmbench_path = harmbench_path
         self.safety_polytope_path = safety_polytope_path
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger
 
     def run(
         self, model_name: str, attack_methods: List[str], layer_num: int = 20
@@ -69,9 +69,9 @@ class HiddenStateExtractionAndProcessingStage:
         try:
             # Prepare command
             methods_str = ",".join(attack_methods)
-            execution_mode = self.config.get(
-                "hidden_state_extraction", {}
-            ).get("execution_mode", "sbatch")
+            execution_mode = self.config.get("hidden_state_extraction", {}).get(
+                "execution_mode", "sbatch"
+            )
 
             # Map 'slurm' to 'sbatch' for compatibility with save_reps.sh
             if execution_mode == "slurm":
@@ -87,19 +87,24 @@ class HiddenStateExtractionAndProcessingStage:
 
             self.logger.info(f"Running command: {' '.join(cmd)}")
 
-            # Run the script
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            # Stream the script output in real-time
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+            )
+            try:
+                for line in process.stdout:
+                    self.logger.info(line.rstrip())
+            finally:
+                if process.stdout:
+                    process.stdout.close()
+            returncode = process.wait()
 
-            if result.returncode != 0:
-                error_msg = (
-                    f"save_reps.sh failed with return code {result.returncode}"
-                )
-                if result.stdout:
-                    error_msg += f"\nSTDOUT:\n{result.stdout}"
-                if result.stderr:
-                    error_msg += f"\nSTDERR:\n{result.stderr}"
-                self.logger.error(error_msg)
-                raise RuntimeError(error_msg)
+            if returncode != 0:
+                raise RuntimeError("save_reps.sh failed (see logs above)")
 
             self.logger.info("save_reps.sh completed successfully")
 
@@ -124,9 +129,7 @@ class HiddenStateExtractionAndProcessingStage:
         )
 
         if squeue_check.returncode != 0:
-            self.logger.warning(
-                "squeue command not found. This might be because:"
-            )
+            self.logger.warning("squeue command not found. This might be because:")
             self.logger.warning("1. You're not on a SLURM cluster node")
             self.logger.warning("2. SLURM is not installed or not in PATH")
             self.logger.warning(
@@ -136,12 +139,8 @@ class HiddenStateExtractionAndProcessingStage:
             time.sleep(30)
             return
 
-        timeout_minutes = self.config.get("slurm", {}).get(
-            "job_timeout_minutes", 240
-        )
-        check_interval = self.config.get("slurm", {}).get(
-            "check_interval_seconds", 60
-        )
+        timeout_minutes = self.config.get("slurm", {}).get("job_timeout_minutes", 240)
+        check_interval = self.config.get("slurm", {}).get("check_interval_seconds", 60)
 
         start_time = time.time()
         timeout_seconds = timeout_minutes * 60
@@ -166,9 +165,7 @@ class HiddenStateExtractionAndProcessingStage:
             )
 
             if result.returncode != 0:
-                self.logger.warning(
-                    f"Failed to check SLURM queue: {result.stderr}"
-                )
+                self.logger.warning(f"Failed to check SLURM queue: {result.stderr}")
                 time.sleep(check_interval)
                 continue
 
@@ -194,9 +191,7 @@ class HiddenStateExtractionAndProcessingStage:
             f"'generate_save_' SLURM jobs did not complete within {timeout_minutes} minutes"
         )
 
-    def _run_process_hb_states(
-        self, model_name: str, attack_methods: List[str]
-    ) -> str:
+    def _run_process_hb_states(self, model_name: str, attack_methods: List[str]) -> str:
         """
         Run process_hb_states.py script
 
@@ -237,29 +232,33 @@ class HiddenStateExtractionAndProcessingStage:
             self.logger.info(f"Running command: {' '.join(cmd)}")
 
             # Run the script
-            result = subprocess.run(
+            process = subprocess.Popen(
                 cmd,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
-                timeout=600,  # 10 minute timeout
+                bufsize=1,
             )
+            start_time = time.time()
+            try:
+                for line in process.stdout:
+                    self.logger.info(line.rstrip())
+                    if time.time() - start_time > 600:
+                        process.kill()
+                        raise TimeoutError("process_hb_states.py timed out")
+            finally:
+                if process.stdout:
+                    process.stdout.close()
+            returncode = process.wait()
 
-            if result.returncode != 0:
-                error_msg = f"process_hb_states.py failed with return code {result.returncode}"
-                if result.stdout:
-                    error_msg += f"\nSTDOUT:\n{result.stdout}"
-                if result.stderr:
-                    error_msg += f"\nSTDERR:\n{result.stderr}"
-                self.logger.error(error_msg)
-                raise RuntimeError(error_msg)
+            if returncode != 0:
+                raise RuntimeError("process_hb_states.py failed (see logs above)")
 
             self.logger.info("process_hb_states.py completed successfully")
             self.logger.info(f"Output saved to: {output_path}")
 
             # Validate output file
-            full_output_path = os.path.join(
-                self.safety_polytope_path, output_path
-            )
+            full_output_path = os.path.join(self.safety_polytope_path, output_path)
             if not os.path.exists(full_output_path):
                 raise RuntimeError(
                     f"Expected output file not found: {full_output_path}"

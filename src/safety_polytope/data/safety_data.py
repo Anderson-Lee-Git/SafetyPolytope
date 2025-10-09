@@ -1,5 +1,6 @@
 from typing import Optional
 
+import numpy as np
 import torch.multiprocessing
 import tqdm
 from torch.utils.data import DataLoader, Dataset
@@ -65,9 +66,7 @@ class PromptResponseDataset(Dataset):
                 response = data["response"][idx]
                 category = data["category"][idx]
 
-                self.data.append(
-                    format_fn(instruction, category, prompt, response)
-                )
+                self.data.append(format_fn(instruction, category, prompt, response))
                 self.label.append(is_safe)
                 self.category.append(category)
 
@@ -79,6 +78,11 @@ class HiddenStatesDataset(Dataset):
     def __init__(self, data):
         self.data = data["hidden_states"]
         self.label = data["labels"]
+
+        if isinstance(self.data, np.ndarray):
+            self.data = torch.from_numpy(self.data)
+        if isinstance(self.label, np.ndarray):
+            self.label = torch.from_numpy(self.label)
 
         self.data = self.data.to(dtype=torch.float32)
         self.label = self.label.to(dtype=torch.float32)

@@ -11,7 +11,7 @@ seed: 42
 layer_number: 20
 num_top: 10
 use_raw_violations: true
-temperature: 1000
+temperature: 1
 cat_data_path: None
 save_cat_data_path: ${hydra:runtime.cwd}/data/mi_data/mi_ce_data.pth
 save_hs_root_dir: ${hydra:runtime.cwd}/data/

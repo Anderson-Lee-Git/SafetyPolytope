@@ -17,6 +17,10 @@ def get_model_name(model_path: str) -> str:
         return "llama2-7b"
     elif "Qwen2-1.5B" in model_path:
         return "qwen2-1.5b"
+    elif "Qwen3-4B" in model_path:
+        return "qwen3-4b"
+    elif "gpt-oss-20b" in model_path:
+        return "gpt-oss-20b"
     else:
         raise NotImplementedError(
             f"Please manually configure a model name for {model_path}."
@@ -59,9 +63,7 @@ def run_polytope_training(
             valid_paths.append(escape_category(hidden_states_path))
 
         if not valid_paths:
-            print(
-                "No valid hidden states files found. Skipping polytope training."
-            )
+            print("No valid hidden states files found. Skipping polytope training.")
             return
 
         # Join all escaped paths with commas for parallel execution
@@ -69,7 +71,7 @@ def run_polytope_training(
         cmd = [
             "python",
             "src/safety_polytope/polytope/learn_polytope.py",
-            f"dataset.hidden_states_path={all_paths}",
+            f"dataset.hidden_states_path='{all_paths}'",
             f"model_path={model_path}",
             "exp_ident=polytope_training",
             "--multirun",
@@ -96,7 +98,7 @@ def run_polytope_training(
             cmd = [
                 "python",
                 "src/safety_polytope/polytope/learn_polytope.py",
-                f"dataset.hidden_states_path={hidden_states_path}",
+                f"dataset.hidden_states_path='{hidden_states_path}'",
                 f"model_path={model_path}",
                 f"exp_ident=polytope_training_{i}",
             ]
@@ -105,6 +107,38 @@ def run_polytope_training(
             print(f"Command: {' '.join(cmd)}\n")
             # Wait for the process to complete before starting the next one
             subprocess.run(cmd, check=True)
+
+
+def run_polytope_all_training(
+    data_path: str,
+    model_name: str,
+    dataset_name: str,
+    model_path: str,
+):
+    # Sequential execution for local mode
+    hidden_states_path = os.path.join(
+        data_path,
+        dataset_name,
+        model_name,
+        f"all_hidden_states_with_safe.pth",
+    )
+
+    if not os.path.exists(hidden_states_path):
+        print(f"Warning: File not found - {hidden_states_path}")
+        return
+
+    cmd = [
+        "python",
+        "src/safety_polytope/polytope/learn_polytope.py",
+        f"dataset.hidden_states_path='{hidden_states_path}'",
+        f"model_path={model_path}",
+        f"exp_ident=polytope_training_all",
+    ]
+
+    print(f"\nStarting training for all categories combined...")
+    print(f"Command: {' '.join(cmd)}\n")
+    # Wait for the process to complete before starting the next one
+    subprocess.run(cmd, check=True)
 
 
 def save_hidden_states(args, categories: List[str], data_path: str):
@@ -206,11 +240,17 @@ def main():
 
     # Run polytope training
     print("Starting polytope training...")
-    run_polytope_training(
+    # run_polytope_training(
+    #     data_path,
+    #     model_name,
+    #     categories[:-1],  # Exclude the last category (safety)
+    #     args.mode,
+    #     args.dataset,
+    #     args.model_path,
+    # )
+    run_polytope_all_training(
         data_path,
         model_name,
-        categories[:-1],  # Exclude the last category (safety)
-        args.mode,
         args.dataset,
         args.model_path,
     )

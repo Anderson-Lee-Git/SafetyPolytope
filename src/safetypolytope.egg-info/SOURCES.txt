@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+setup.py
+src/safetypolytope.egg-info/PKG-INFO
+src/safetypolytope.egg-info/SOURCES.txt
+src/safetypolytope.egg-info/dependency_links.txt
+src/safetypolytope.egg-info/not-zip-safe
+src/safetypolytope.egg-info/top_level.txt

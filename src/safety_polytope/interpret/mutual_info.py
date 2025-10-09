@@ -11,6 +11,7 @@ from sklearn.metrics import mutual_info_score
 from tueplots import bundles
 
 from safety_polytope.data.safety_data import get_hidden_states_dataloader
+from safety_polytope.data.beaver_data import get_categories
 from safety_polytope.polytope.lm_constraints import PolytopeConstraint
 
 log = logging.getLogger("polytope")
@@ -177,8 +178,9 @@ def plot_and_save_heatmap(
     log.info(f"Heatmap saved to {heatmap_path}")
 
 
-def get_class_idx_hidden_state_file(base_path, hs_filename, class_idx):
-    hs_filepath = os.path.join(base_path, class_idx, hs_filename)
+def get_class_idx_hidden_state_file(base_path, class_idx):
+    category = get_categories()[class_idx]
+    hs_filepath = os.path.join(base_path, f"hidden_states_{category}.pth")
     hs = torch.load(hs_filepath, weights_only=False)
     return hs
 
@@ -212,13 +214,12 @@ def get_category_true_and_pred(class_idx, model, cfg):
     """
     data = get_class_idx_hidden_state_file(
         base_path=cfg.dataset.hs_base_path,
-        hs_filename=cfg.dataset.hs_filename,
-        class_idx=str(class_idx),
+        class_idx=class_idx,
     )
-    dataloader = get_hidden_states_dataloader(data["test"])
+    dataloader = get_hidden_states_dataloader(data["train"])
     num_categories = cfg.dataset.num_categories
     num_edges = model.phi.shape[0]
-    n_data = len(data["test"]["labels"])
+    n_data = len(data["train"]["labels"])
 
     y_true = np.zeros((n_data, num_categories))
     y_pred = np.zeros((n_data, num_edges))
@@ -235,7 +236,9 @@ def get_category_true_and_pred(class_idx, model, cfg):
 
         # Fill in the y_true matrix with actual labels
         batch_labels = labels.cpu().numpy()
-        y_true[start_idx : start_idx + batch_size, class_idx] = batch_labels
+        # each label for one category is "is_safe" for the category
+        # so we needs to invert the label and set it to 1
+        y_true[start_idx : start_idx + batch_size, class_idx] = 1 - batch_labels 
 
         if cfg.use_raw_violations:
             # Use raw violations

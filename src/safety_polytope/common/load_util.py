@@ -26,7 +26,7 @@ def load_representations(rep_save_dir):
 def load_model_and_tokenizer(model_path, **kwargs):
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.float16,
+        torch_dtype="auto",
         device_map="auto",
         **kwargs,
     ).eval()

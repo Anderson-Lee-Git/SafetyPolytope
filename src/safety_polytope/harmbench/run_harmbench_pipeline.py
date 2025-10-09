@@ -13,7 +13,7 @@ python src/safety_polytope/harmbench/run_harmbench_pipeline.py --config src/safe
 """
 
 import argparse
-import logging
+from loguru import logger
 import os
 import sys
 from typing import List, Optional
@@ -54,17 +54,12 @@ class HarmBenchPipeline:
         self.config = load_config(config_path)
         validate_config(self.config)
         setup_logging(self.config)
-
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger
         self.harmbench_path = self.config["pipeline"]["harmbench_path"]
-        self.safety_polytope_path = self.config["pipeline"][
-            "safety_polytope_path"
-        ]
+        self.safety_polytope_path = self.config["pipeline"]["safety_polytope_path"]
 
         # Initialize stages
-        self.attack_generation = AttackGenerationStage(
-            self.config, self.harmbench_path
-        )
+        self.attack_generation = AttackGenerationStage(self.config, self.harmbench_path)
         self.hidden_state_extraction_and_processing = (
             HiddenStateExtractionAndProcessingStage(
                 self.config, self.harmbench_path, self.safety_polytope_path
@@ -114,14 +109,10 @@ class HarmBenchPipeline:
         # Stage 2: Hidden State Extraction and Processing
         processed_data_path = None
         if 2 in stages:
-            self.logger.info(
-                "=== Stage 2: Hidden State Extraction and Processing ==="
-            )
+            self.logger.info("=== Stage 2: Hidden State Extraction and Processing ===")
             try:
-                processed_data_path = (
-                    self.hidden_state_extraction_and_processing.run(
-                        model_name, attack_methods, hidden_state_layer
-                    )
+                processed_data_path = self.hidden_state_extraction_and_processing.run(
+                    model_name, attack_methods, hidden_state_layer
                 )
                 self.logger.info(
                     f"Stage 2 completed successfully: {processed_data_path}"
@@ -153,9 +144,7 @@ class HarmBenchPipeline:
             self.logger.info("=== Stage 4: Steering Evaluation ===")
             try:
                 # Get polytope model path from config
-                polytope_model_path = model_config["steering"][
-                    "polytope_model_path"
-                ]
+                polytope_model_path = model_config["steering"]["polytope_model_path"]
                 if polytope_model_path is None or not os.path.exists(
                     polytope_model_path
                 ):
@@ -192,9 +181,7 @@ class HarmBenchPipeline:
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(
-        description="HarmBench Pipeline Orchestrator"
-    )
+    parser = argparse.ArgumentParser(description="HarmBench Pipeline Orchestrator")
     parser.add_argument(
         "--config", required=True, help="Path to pipeline configuration file"
     )
@@ -219,14 +206,14 @@ def main():
                 if stage not in [1, 2, 3, 4]:
                     raise ValueError(f"Invalid stage number: {stage}")
         except ValueError as e:
-            print(f"Error parsing stages: {e}")
+            logger.error(f"Error parsing stages: {e}")
             sys.exit(1)
 
     # Initialize pipeline
     try:
         pipeline = HarmBenchPipeline(args.config)
     except Exception as e:
-        print(f"Failed to initialize pipeline: {e}")
+        logger.error(f"Failed to initialize pipeline: {e}")
         sys.exit(1)
 
     # Run pipeline
@@ -236,10 +223,10 @@ def main():
         else:
             pipeline.run(args.model, stages)
     except Exception as e:
-        print(f"Pipeline execution failed: {e}")
+        logger.error(f"Pipeline execution failed: {e}")
         sys.exit(1)
 
-    print("Pipeline completed successfully!")
+    logger.info("Pipeline completed successfully!")
 
 
 if __name__ == "__main__":

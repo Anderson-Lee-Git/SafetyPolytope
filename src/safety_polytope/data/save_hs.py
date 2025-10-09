@@ -15,6 +15,10 @@ from safety_polytope.data.safety_data import (
 )
 from safety_polytope.polytope.lm_constraints import PolytopeConstraint
 
+from accelerate import Accelerator
+
+accelerator = Accelerator()
+
 log = logging.getLogger("polytope")
 
 
@@ -48,8 +52,8 @@ def get_hidden_states_dict(cfg, data, model, tokenizer):
             layer_hs = output.hidden_states[cfg.layer_number]
             last_token_hs = layer_hs[:, -1, :]
 
-        hidden_states_list.append(last_token_hs.cpu().numpy())
-        labels_list.append(label.cpu().numpy())
+        hidden_states_list.append(last_token_hs.float().cpu().numpy())
+        labels_list.append(label.float().cpu().numpy())
         input_texts_list.extend(text)
 
         if len(hidden_states_list) * cfg.batch_size >= cfg.total_datapoints:
@@ -69,23 +73,21 @@ def get_hidden_states_dict(cfg, data, model, tokenizer):
     version_base="1.1",
 )
 def main(cfg: DictConfig):
-    train_data, test_data = get_dataset(cfg.dataset.name_or_path, cfg.dataset)
-
-    model, tokenizer = load_model_and_tokenizer(cfg.model_path)
-    safety_model = PolytopeConstraint(model, tokenizer)
-
-    safety_model.to(model.device)
-
     if "Ministral-8B" in cfg.model_path:
         model_name = "ministral-8b"
     elif "llama-2-7b" in cfg.model_path:
         model_name = "llama2-7b"
     elif "Qwen2-1.5B" in cfg.model_path:
         model_name = "qwen2-1.5b"
+    elif "Qwen3-4B" in cfg.model_path:
+        model_name = "qwen3-4b"
+    elif "gpt-oss-20b" in cfg.model_path:
+        model_name = "gpt-oss-20b"
     else:
         raise NotImplementedError(
             f"Please mannually configure a model name for {cfg.model_path}."
         )
+
     save_dir = f"{cfg.save_hs_root_dir}/{cfg.dataset.short_name}/{model_name}"
     os.makedirs(save_dir, exist_ok=True)
 
@@ -94,6 +96,17 @@ def main(cfg: DictConfig):
         save_dir,
         f"hidden_states_{category}.pth",
     )
+
+    if os.path.exists(pth_save_path):
+        log.info(f"Hidden states already exist at {pth_save_path}")
+        return
+
+    train_data, test_data = get_dataset(cfg.dataset.name_or_path, cfg.dataset)
+
+    model, tokenizer = load_model_and_tokenizer(cfg.model_path)
+    # safety_model = PolytopeConstraint(model, tokenizer)
+
+    # safety_model.to(model.device)
 
     train_dict = get_hidden_states_dict(cfg, train_data, model, tokenizer)
     test_dict = get_hidden_states_dict(cfg, test_data, model, tokenizer)

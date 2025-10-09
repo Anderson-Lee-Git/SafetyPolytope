@@ -5,3 +5,5 @@ multirun/
 .claude/
 CLAUDE.md
 logs/
+.venv/
+data/

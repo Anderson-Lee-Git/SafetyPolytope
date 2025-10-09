@@ -16,6 +16,7 @@ setuptools.setup(
         "accelerate==0.30.0",
         "datasets==2.20.0",
         "hydra-core==1.3.2",
+        "kernels==0.10.2",
         "nltk==3.9.1",
         "omegaconf==2.3.0",
         "pandas==2.2.3",
@@ -25,13 +26,16 @@ setuptools.setup(
         "setuptools==68.2.2",
         "tensorflow==2.18.0",
         "tqdm==4.66.4",
-        "transformers==4.45.2",
+        "transformers>=4.45.2",
+        "triton==3.4.0",
         "tueplots==0.0.17",
         "umap-learn==0.5.6",
-        "vllm==0.6.3.post1",
         "hydra-submitit-launcher==1.2.0",
     ],
     extras_require={
+        "vllm": [
+            "vllm==0.6.3.post1",
+        ],
         "dev": [
             "black>=23.1.0",
             "isort>=5.12.0",

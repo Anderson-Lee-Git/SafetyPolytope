@@ -2,11 +2,11 @@
 pipeline:
   name: "harmbench_experiment"
   output_dir: "./outputs/harmbench_experiments"
-  harmbench_path: "/cluster/project/krause/chexin/github/HarmBench"
-  safety_polytope_path: "/cluster/project/krause/chexin/safety_polytope"
+  harmbench_path: "/scratch/gpfs/KOROLOVA/cl6486/HarmBench"
+  safety_polytope_path: "/scratch/gpfs/KOROLOVA/cl6486/SafetyPolytope/src/safety_polytope"
   # HarmBench run_pipeline.py settings
-  base_save_dir: "./results"
-  base_log_dir: "./slurm_logs"
+  base_save_dir: "/scratch/gpfs/KOROLOVA/cl6486/HarmBench/results"
+  base_log_dir: "/scratch/gpfs/KOROLOVA/cl6486/HarmBench/slurm_logs"
   cls_path: "cais/HarmBench-Llama-2-13b-cls"
 
 # Models to test
@@ -60,7 +60,24 @@ models:
       lambda_constraint: 1.0
       margin: 30.0
       num_phi: 50
-    attack_methods: ["AutoPrompt", "DirectRequest", "GBDA", "GCG"]
+    attack_methods: ["GCG"]  # "AutoPrompt", "DirectRequest", "GBDA", 
+  - name: "gpt_oss_20b"
+    path: "openai/gpt-oss-20b"
+    hidden_state_layer: 20
+    steering:
+      polytope_model_path: "Your_Polytope_Model_Path"
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
+    polytope_training:
+      hidden_states_path: "Your_Hidden_States_Path"
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      unsafe_weight: 2.0
+      lambda_constraint: 1.0
+      margin: 20
+      num_phi: 30
+    attack_methods: ["GCG", "GBDA", "DirectRequest"]
 
 # Slurm configuration
 slurm:
@@ -72,7 +89,7 @@ slurm:
 # Attack generation settings (Stage 1 - Complete HarmBench Pipeline)
 attack_generation:
   behavior_dataset: "./data/behavior_datasets/harmbench_behaviors_text_val.csv"
-  execution_mode: "slurm"  # Mode for run_pipeline.py
+  execution_mode: "local"  # Mode for run_pipeline.py
 
 # Hidden state extraction settings
 hidden_state_extraction:

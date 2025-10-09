@@ -3,6 +3,7 @@ Configuration utilities for HarmBench pipeline
 """
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -28,9 +29,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
     return config
 
 
-def get_model_config(
-    config: Dict[str, Any], model_name: str
-) -> Dict[str, Any]:
+def get_model_config(config: Dict[str, Any], model_name: str) -> Dict[str, Any]:
     """
     Get configuration for a specific model
 
@@ -58,9 +57,7 @@ def validate_config(config: Dict[str, Any]) -> None:
     required_sections = ["pipeline", "models", "slurm"]
     for section in required_sections:
         if section not in config:
-            raise ValueError(
-                f"Missing required configuration section: {section}"
-            )
+            raise ValueError(f"Missing required configuration section: {section}")
 
     # Validate pipeline section
     pipeline_config = config["pipeline"]
@@ -77,9 +74,7 @@ def validate_config(config: Dict[str, Any]) -> None:
         raise ValueError(f"HarmBench path does not exist: {harmbench_path}")
 
     if not os.path.exists(safety_polytope_path):
-        raise ValueError(
-            f"Safety Polytope path does not exist: {safety_polytope_path}"
-        )
+        raise ValueError(f"Safety Polytope path does not exist: {safety_polytope_path}")
 
     # Validate models
     if not config.get("models"):
@@ -89,14 +84,10 @@ def validate_config(config: Dict[str, Any]) -> None:
         required_model_keys = ["name", "path", "attack_methods"]
         for key in required_model_keys:
             if key not in model:
-                raise ValueError(
-                    f"Missing required model configuration: {key}"
-                )
+                raise ValueError(f"Missing required model configuration: {key}")
 
         if not model["attack_methods"]:
-            raise ValueError(
-                f"No attack methods configured for model: {model['name']}"
-            )
+            raise ValueError(f"No attack methods configured for model: {model['name']}")
 
 
 def get_harmbench_model_name(model_name: str) -> str:
@@ -183,7 +174,7 @@ def setup_logging(config: Dict[str, Any]) -> None:
     Args:
         config: Configuration dictionary
     """
-    import logging
+    from loguru import logger
 
     log_config = config.get("logging", {})
     log_level = log_config.get("level", "INFO")
@@ -192,12 +183,13 @@ def setup_logging(config: Dict[str, Any]) -> None:
     # Create log directory
     os.makedirs(log_dir, exist_ok=True)
 
-    # Setup logging
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(os.path.join(log_dir, "pipeline.log")),
-            logging.StreamHandler(),
-        ],
+    # Configure loguru
+    logger.remove()
+    logger.add(
+        os.path.join(log_dir, "pipeline.log"),
+        level=log_level.upper(),
+        enqueue=True,
+        backtrace=False,
+        diagnose=False,
     )
+    logger.add(sys.stdout, level=log_level.upper())

@@ -89,9 +89,7 @@ def merge_hidden_states_data(hs_files, save_name, balance_data=True):
     # Infer category from the first file's name
     first_file = os.path.basename(hs_files[0])
     # Extract category from "hidden_states_<category>.pth"
-    data_category = first_file.replace("hidden_states_", "").replace(
-        ".pth", ""
-    )
+    data_category = first_file.replace("hidden_states_", "").replace(".pth", "")
 
     # Load the first file to get the reference size for balancing
     first_file_data = torch.load(hs_files[0], weights_only=False)
@@ -101,9 +99,7 @@ def merge_hidden_states_data(hs_files, save_name, balance_data=True):
     }
 
     if balance_data:
-        print(
-            f"Reference sizes for category {data_category}: {reference_sizes}"
-        )
+        print(f"Reference sizes for category {data_category}: {reference_sizes}")
 
     # Process each hidden states file with progress tracking
     for i, hs_file in enumerate(
@@ -163,14 +159,10 @@ def get_categories() -> List[str]:
     ]
 
 
-def run_merge_safe_and_unsafe_hs(
-    base_path, exp_path, hs_filename, safe_file_path
-):
+def run_merge_safe_and_unsafe_hs(base_path, exp_path, hs_filename, safe_file_path):
     file_paths = [f"{i}/{hs_filename}" for i in range(0, 14)]
 
-    all_full_paths = [
-        os.path.join(base_path, exp_path, file) for file in file_paths
-    ]
+    all_full_paths = [os.path.join(base_path, exp_path, file) for file in file_paths]
     all_full_paths.append(safe_file_path)
 
     for file in file_paths:
@@ -241,6 +233,11 @@ def merge_hidden_states(base_path, dataset_name, model_file_name):
             save_name="all_hidden_states.pth",
             balance_data=False,
         )
+        merge_hidden_states_data(
+            hs_files=hs_files + [safe_file],
+            save_name="all_hidden_states_with_safe.pth",
+            balance_data=False,
+        )
 
 
 def balance_merged_hidden_states(input_file, output_file, reference_file):
@@ -265,9 +262,7 @@ def balance_merged_hidden_states(input_file, output_file, reference_file):
         indices = None
 
         # Balance each key
-        for key, tensor in tqdm(
-            split_data.items(), desc=f"Balancing {split} keys"
-        ):
+        for key, tensor in tqdm(split_data.items(), desc=f"Balancing {split} keys"):
             if tensor.size(0) >= 2 * reference_size:
                 # Take the first reference_size slices
                 first_part = tensor[:reference_size]
@@ -279,9 +274,7 @@ def balance_merged_hidden_states(input_file, output_file, reference_file):
                 second_part = remaining[indices]
 
                 # Concatenate the two parts
-                balanced_data[split][key] = torch.cat(
-                    [first_part, second_part], dim=0
-                )
+                balanced_data[split][key] = torch.cat([first_part, second_part], dim=0)
             else:
                 # If we don't have enough data, use all available data
                 balanced_data[split][key] = tensor
@@ -301,16 +294,14 @@ def balance_all_merged_files(
 ):
 
     all_input_files = [
-        os.path.join(base_path, exp_path, str(i), existing_hs_file)
-        for i in range(14)
+        os.path.join(base_path, exp_path, str(i), existing_hs_file) for i in range(14)
     ]
     all_output_files = [
         os.path.join(base_path, exp_path, str(i), balanced_hs_filename)
         for i in range(14)
     ]
     all_reference_files = [
-        os.path.join(base_path, exp_path, str(i), reference_hs_file)
-        for i in range(14)
+        os.path.join(base_path, exp_path, str(i), reference_hs_file) for i in range(14)
     ]
 
     for input_file, output_file, reference_file in zip(
