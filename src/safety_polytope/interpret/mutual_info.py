@@ -11,7 +11,6 @@ from sklearn.metrics import mutual_info_score
 from tueplots import bundles
 
 from safety_polytope.data.safety_data import get_hidden_states_dataloader
-from safety_polytope.data.beaver_data import get_categories
 from safety_polytope.polytope.lm_constraints import PolytopeConstraint
 
 log = logging.getLogger("polytope")
@@ -144,9 +143,7 @@ def plot_and_save_heatmap(
     fig_height = max(6, num_categories * cell_size + 2)  # add margin
 
     # Create the figure and axes with constrained_layout
-    fig, ax = plt.subplots(
-        figsize=(fig_width, fig_height), constrained_layout=True
-    )
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), constrained_layout=True)
 
     # Plot the heatmap without colorbar and with square cells
     sns.heatmap(
@@ -178,7 +175,14 @@ def plot_and_save_heatmap(
     log.info(f"Heatmap saved to {heatmap_path}")
 
 
-def get_class_idx_hidden_state_file(base_path, class_idx):
+def get_class_idx_hidden_state_file(base_path, class_idx, dataset_name):
+    if dataset_name == "wildguard":
+        from safety_polytope.data.wildguard_data import get_categories
+    elif dataset_name == "beaver_tails":
+        from safety_polytope.data.beaver_data import get_categories
+    else:
+        raise NotImplementedError(f"Dataset {dataset_name} not implemented")
+
     category = get_categories()[class_idx]
     hs_filepath = os.path.join(base_path, f"hidden_states_{category}.pth")
     hs = torch.load(hs_filepath, weights_only=False)
@@ -215,6 +219,7 @@ def get_category_true_and_pred(class_idx, model, cfg):
     data = get_class_idx_hidden_state_file(
         base_path=cfg.dataset.hs_base_path,
         class_idx=class_idx,
+        dataset_name=cfg.dataset.short_name,
     )
     dataloader = get_hidden_states_dataloader(data["train"])
     num_categories = cfg.dataset.num_categories
@@ -238,7 +243,7 @@ def get_category_true_and_pred(class_idx, model, cfg):
         batch_labels = labels.cpu().numpy()
         # each label for one category is "is_safe" for the category
         # so we needs to invert the label and set it to 1
-        y_true[start_idx : start_idx + batch_size, class_idx] = 1 - batch_labels 
+        y_true[start_idx : start_idx + batch_size, class_idx] = 1 - batch_labels
 
         if cfg.use_raw_violations:
             # Use raw violations
@@ -274,9 +279,7 @@ def save_cat_data(cat_true, cat_pred, file_path):
     cat_pred_tensor = torch.from_numpy(cat_pred)
 
     # Save tensors
-    torch.save(
-        {"cat_true": cat_true_tensor, "cat_pred": cat_pred_tensor}, file_path
-    )
+    torch.save({"cat_true": cat_true_tensor, "cat_pred": cat_pred_tensor}, file_path)
     log.info(f"Saved cat_true and cat_pred to {file_path}")
 
 

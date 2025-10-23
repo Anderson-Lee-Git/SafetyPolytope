@@ -1,0 +1,15 @@
+short_name: wildguard
+name_or_path: allenai/wildguardmix
+subset: None
+split: wildguardtrain
+dataset_type: prompt_response
+category: None
+num_epochs: 20
+num_phi: 50
+num_categories: 9
+trained_weights_path: /scratch/gpfs/KOROLOVA/cl6486/SafetyPolytope/outputs/wildguard/2025-10-10/polytope_training_all-00-11-14/weights.pth
+hidden_states_path: None
+extra_data_path: None
+hs_base_path: /scratch/gpfs/KOROLOVA/cl6486/data/data/wildguard/qwen3-4b
+hs_filename: None
+hint_category: True

@@ -4,6 +4,9 @@ Version: 0.1.0
 Summary: Add your description here
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: datasets>=4.2.0
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: pip>=25.2
 Dynamic: requires-python
 
 # Learning Safety Constraints for LLMs

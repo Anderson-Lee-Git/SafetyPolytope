@@ -14,9 +14,3 @@
 export XDG_CACHE_HOME="/scratch/gpfs/KOROLOVA/cl6486/.cache"
 export HF_TOKEN=""
 
-nvidia-smi
-
-accelerate launch --num_processes 1 src/safety_polytope/polytope/run_beaver_pipeline.py \
-    --model_path=/scratch/gpfs/KOROLOVA/cl6486/.cache/huggingface/hub/models--openai--gpt-oss-20b/snapshots/6cee5e81ee83917806bbde320786a8fb61efebee \
-    --mode=local \
-    --base_path=/scratch/gpfs/KOROLOVA/cl6486/data

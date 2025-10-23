@@ -61,6 +61,23 @@ models:
       margin: 30.0
       num_phi: 50
     attack_methods: ["GCG"]  # "AutoPrompt", "DirectRequest", "GBDA", 
+  - name: "qwen_3_4b"
+    path: "Qwen/Qwen3-4B-Instruct-2507"
+    hidden_state_layer: 20
+    steering:
+      polytope_model_path: "Your_Polytope_Model_Path"
+      evaluation_methods: ["AutoDAN", "HumanJailbreaks", "PEZ", "UAT", "AutoPrompt", "GCG", "GBDA", "DirectRequest"]
+    polytope_training:
+      hidden_states_path: "Your_Hidden_States_Path"
+      learning_rate: 0.01
+      batch_size: 128
+      feature_dim: 16384
+      entropy_weight: 1.0
+      unsafe_weight: 4.0
+      lambda_constraint: 1.0
+      margin: 30.0
+      num_phi: 50
+    attack_methods: ["GCG", "AutoPrompt", "DirectRequest", "GBDA"] 
   - name: "gpt_oss_20b"
     path: "openai/gpt-oss-20b"
     hidden_state_layer: 20

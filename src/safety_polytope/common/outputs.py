@@ -149,7 +149,7 @@ def evaluate_model(
     batch_count = 0
 
     with torch.no_grad():
-        for inputs, labels in dataloader:
+        for inputs, labels, _ in dataloader:
             if isinstance(inputs, torch.Tensor):
                 inputs = inputs.to(model.device)
             labels = labels.float().to(model.device)

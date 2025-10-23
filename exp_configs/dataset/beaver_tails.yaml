@@ -2,7 +2,7 @@ short_name: beaver_tails
 name_or_path: PKU-Alignment/BeaverTails
 subset: None
 split: 330k_train
-dataset_type: prompt_response
+dataset_type: prompt
 category: None
 num_epochs: 20
 num_phi: 50

@@ -2,11 +2,18 @@ defaults:
   - dataset: beaver_tails
   # - override hydra/launcher: submitit_slurm
 
-exp_ident: test_model
+exp_ident: eval_generation
 model_path: None
-run_summary_path: None
-output_run_summary: true
+polytope_weight_path: None
+use_backup_response: False
+projection: False
+steer_layer: 20
+lambda_weight: 1.0
+steer_first_n_tokens: 20
+safe_violation_weight: 0.0001
+guard_model_path: None
 seed: 42
+subset_size: 1.0
 
 hydra:
   run:

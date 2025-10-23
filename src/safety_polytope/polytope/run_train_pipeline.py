@@ -3,28 +3,11 @@ import os
 import subprocess
 from typing import List
 
-from safety_polytope.data.beaver_data import (
-    get_categories,
-    merge_hidden_states,
-)
+from safety_polytope.data.utils import merge_hidden_states
+from safety_polytope.common.load_util import get_model_name
 
 
-def get_model_name(model_path: str) -> str:
-    """Extract standardized model name from model path."""
-    if "Ministral-8B" in model_path:
-        return "ministral-8b"
-    elif "llama-2-7b" in model_path:
-        return "llama2-7b"
-    elif "Qwen2-1.5B" in model_path:
-        return "qwen2-1.5b"
-    elif "Qwen3-4B" in model_path:
-        return "qwen3-4b"
-    elif "gpt-oss-20b" in model_path:
-        return "gpt-oss-20b"
-    else:
-        raise NotImplementedError(
-            f"Please manually configure a model name for {model_path}."
-        )
+
 
 
 def escape_category(text: str) -> str:
@@ -122,6 +105,8 @@ def run_polytope_all_training(
         model_name,
         f"all_hidden_states_with_safe.pth",
     )
+    
+    print(f"Hidden states path: {hidden_states_path}")
 
     if not os.path.exists(hidden_states_path):
         print(f"Warning: File not found - {hidden_states_path}")
@@ -148,7 +133,7 @@ def save_hidden_states(args, categories: List[str], data_path: str):
         "src/safety_polytope/data/save_hs.py",
         f"dataset={args.dataset}",
         f"model_path={args.model_path}",
-        "exp_ident=save_beaver_states",
+        f"exp_ident=save_{args.dataset}_states",
         f"save_hs_root_dir={data_path}",
     ]
 
@@ -178,7 +163,7 @@ def save_hidden_states(args, categories: List[str], data_path: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run BeaverTails dataset training pipeline"
+        description="Run dataset training pipeline"
     )
     parser.add_argument(
         "--model_path",
@@ -218,6 +203,15 @@ def main():
     args = parser.parse_args()
 
     # Get all categories
+    if args.dataset == "wildguard":
+        from safety_polytope.data.wildguard_data import get_categories
+
+        get_categories = get_categories
+    else:
+        from safety_polytope.data.beaver_data import get_categories
+
+        get_categories = get_categories
+
     categories = get_categories()
 
     # Get model name
@@ -236,10 +230,11 @@ def main():
             base_path=data_path,
             dataset_name=args.dataset,
             model_file_name=model_name,
+            get_categories=get_categories,
         )
 
     # Run polytope training
-    print("Starting polytope training...")
+    # print("Starting polytope training...")
     # run_polytope_training(
     #     data_path,
     #     model_name,
@@ -248,12 +243,12 @@ def main():
     #     args.dataset,
     #     args.model_path,
     # )
-    run_polytope_all_training(
-        data_path,
-        model_name,
-        args.dataset,
-        args.model_path,
-    )
+    # run_polytope_all_training(
+    #     data_path,
+    #     model_name,
+    #     args.dataset,
+    #     args.model_path,
+    # )
 
 
 if __name__ == "__main__":

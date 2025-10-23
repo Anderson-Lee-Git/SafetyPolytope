@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - dataset: beaver_tails
+exp_ident: save_hs
+model_path: null
+total_datapoints: 999999999
+batch_size: 1
+seed: 42
+layer_number: 20
+save_hs_root_dir: /scratch/gpfs/KOROLOVA/cl6486/data/data
+# If true, iterate over all categories and generate per-category files
+iterate_categories: true
+# If provided, overrides per-run and only processes this category
+single_category: null
+# Control merging behavior after generation
+merge_after_generation: true
+# Use cache
+use_cache: true
+
+hydra:
+  run:
+    dir: outputs/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  job:
+    chdir: True
+  sweep:
+    dir: multirun/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+

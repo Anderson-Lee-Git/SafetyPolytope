@@ -19,6 +19,10 @@ from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
 )
+from transformers.masking_utils import (
+    create_causal_mask,
+    create_sliding_window_causal_mask,
+)
 
 
 def get_elapsed_time(start_time: float) -> str:
@@ -147,9 +151,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
     ) -> torch.Tensor:
         """Apply hidden state optimization for unsafe samples."""
         print("Starting optimization...")
-        optimized_states = self.optimize_hidden_states(
-            hidden_states, safe_mask
-        )
+        optimized_states = self.optimize_hidden_states(hidden_states, safe_mask)
         self.tokens_steered += 1
         return optimized_states
 
@@ -188,12 +190,17 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             logits = self._apply_backup_response(
                 logits,
                 unsafe_mask,
-                kwargs.get("num_logits_to_keep", 0),
+                kwargs.get("num_logits_to_keep", kwargs.get("logits_to_keep", 0)),
                 start_time,
             )
 
-        if kwargs.get("num_logits_to_keep", 0) > 0:
-            logits = logits[:, -kwargs["num_logits_to_keep"] :, :]
+        logits_to_keep = kwargs.get(
+            "num_logits_to_keep", kwargs.get("logits_to_keep", 0)
+        )
+        if isinstance(logits_to_keep, int) and logits_to_keep > 0:
+            logits = logits[:, -logits_to_keep:, :]
+        elif torch.is_tensor(logits_to_keep):
+            logits = logits[:, logits_to_keep, :]
 
         # Move outputs back to input device if needed
         if logits.device != input_device:
@@ -230,9 +237,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             if output_hidden_states is not None
             else self.model.config.output_hidden_states
         )
-        use_cache = (
-            use_cache if use_cache is not None else self.model.config.use_cache
-        )
+        use_cache = use_cache if use_cache is not None else self.model.config.use_cache
 
         return_dict = (
             return_dict
@@ -261,9 +266,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
                 if past_key_values is None:
                     past_key_values = DynamicCache()
                 else:
-                    past_key_values = DynamicCache.from_legacy_cache(
-                        past_key_values
-                    )
+                    past_key_values = DynamicCache.from_legacy_cache(past_key_values)
 
         if cache_position is None:
             past_seen_tokens = (
@@ -280,32 +283,37 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
         if position_ids is None:
             position_ids = cache_position.unsqueeze(0)
 
-        if (
-            "llama" in self.model_name_or_path.lower()
-            or "qwen" in self.model_name_or_path.lower()
+        # Build causal mask(s) using new transformers masking utils
+        mask_kwargs = {
+            "config": self.model.config,
+            "input_embeds": inputs_embeds,
+            "attention_mask": attention_mask,
+            "cache_position": cache_position,
+            "past_key_values": past_key_values,
+            "position_ids": position_ids,
+        }
+
+        causal_mask_mapping = None
+        # Qwen2-style: some layers may use sliding attention; build a mapping
+        if hasattr(self.model, "has_sliding_layers") and getattr(
+            self.model, "has_sliding_layers"
         ):
-            causal_mask = self.model._update_causal_mask(
-                attention_mask,
-                inputs_embeds,
-                cache_position,
-                past_key_values,
-                output_attentions,
-            )
-        elif "mistral" in self.model_name_or_path.lower():
-            causal_mask = self.model._update_causal_mask(
-                attention_mask,
-                inputs_embeds,
-                cache_position,
-                past_key_values,
-                use_cache,
-                output_attentions,
-            )
+            causal_mask_mapping = {
+                "full_attention": create_causal_mask(**mask_kwargs),
+                "sliding_attention": create_sliding_window_causal_mask(**mask_kwargs),
+            }
         else:
-            raise NotImplementedError(
-                f"Model {self.model_name_or_path} not supported"
-            )
+            # Mistral may use a global sliding window; otherwise default full mask
+            if getattr(self.model.config, "sliding_window", None) is not None:
+                causal_mask = create_sliding_window_causal_mask(**mask_kwargs)
+            else:
+                causal_mask = create_causal_mask(**mask_kwargs)
 
         hidden_states = inputs_embeds
+        # Precompute rotary position embeddings to share across layers (Llama/Mistral/Qwen2)
+        position_embeddings = None
+        if hasattr(self.model, "rotary_emb"):
+            position_embeddings = self.model.rotary_emb(hidden_states, position_ids)
 
         # decoder layers
         all_hidden_states: Optional[Tuple[torch.FloatTensor, ...]] = (
@@ -320,17 +328,27 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             if output_hidden_states and all_hidden_states is not None:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
-            layer_outputs = decoder_layer(
+            # Choose appropriate mask per layer when applicable (e.g., Qwen2)
+            layer_attention_mask = None
+            if causal_mask_mapping is not None:
+                attention_type = getattr(
+                    decoder_layer, "attention_type", "full_attention"
+                )
+                layer_attention_mask = causal_mask_mapping.get(
+                    attention_type, causal_mask_mapping["full_attention"]
+                )
+            else:
+                layer_attention_mask = causal_mask
+
+            hidden_states = decoder_layer(
                 hidden_states,
-                attention_mask=causal_mask,
+                attention_mask=layer_attention_mask,
                 position_ids=position_ids,
-                past_key_value=past_key_values,
-                output_attentions=output_attentions,
+                past_key_values=past_key_values,
                 use_cache=use_cache,
                 cache_position=cache_position,
+                position_embeddings=position_embeddings,
             )
-
-            hidden_states = layer_outputs[0]
 
             # Apply steering at the specified layer
             if idx == self.steer_layer:
@@ -347,13 +365,8 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
                     del features
                     del safe_mask
 
-            if use_cache:
-                next_decoder_cache = layer_outputs[
-                    2 if output_attentions else 1
-                ]
-
-            if output_attentions and all_self_attns is not None:
-                all_self_attns = all_self_attns + (layer_outputs[1],)
+            # With new transformers, cache is updated in-place via `past_key_values`.
+            # Attention weights are not returned by decoder layers here; skip collecting them.
 
         hidden_states = self.model.norm(hidden_states)
 
@@ -361,7 +374,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
         if output_hidden_states and all_hidden_states is not None:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
-        next_cache = next_decoder_cache if use_cache else None
+        next_cache = past_key_values if use_cache else None
         if return_legacy_cache and next_cache is not None:
             next_cache = next_cache.to_legacy_cache()  # type: ignore
 
@@ -372,9 +385,14 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             attentions=all_self_attns,
         )
 
-        logits = self.lm_head(
-            hidden_states[:, -num_logits_to_keep:, :]
-        ).float()
+        # Support both `num_logits_to_keep` (legacy) and `logits_to_keep` semantics
+        logits_to_keep = args.get("num_logits_to_keep", args.get("logits_to_keep", 0))
+        slice_indices = (
+            slice(-logits_to_keep, None)
+            if isinstance(logits_to_keep, int)
+            else logits_to_keep
+        )
+        logits = self.lm_head(hidden_states[:, slice_indices, :]).float()
 
         if steered and verbose:
             baseline_outputs = self.lm_model(
@@ -393,10 +411,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
 
             print("\n=== Hidden States Comparison ===")
             hidden_diff = (
-                (all_hidden_states[-1] - baseline_hidden[-1])
-                .abs()
-                .mean()
-                .item()
+                (all_hidden_states[-1] - baseline_hidden[-1]).abs().mean().item()
             )
             print(f"Last layer mean abs difference: {hidden_diff:.6f}")
             steered_diff = (
@@ -415,22 +430,20 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             logits_diff = (logits - baseline_logits).abs().mean().item()
             print(f"Average absolute difference: {logits_diff:.6f}")
 
-            if num_logits_to_keep > 0:
+            if (isinstance(logits_to_keep, int) and logits_to_keep > 0) or (
+                torch.is_tensor(logits_to_keep)
+            ):
                 baseline_top5 = torch.topk(baseline_logits[0, -1], 5)
                 steered_top5 = torch.topk(logits[0, -1], 5)
 
                 print("\nTop 5 token predictions:")
                 print("Baseline:")
-                for score, idx in zip(
-                    baseline_top5.values, baseline_top5.indices
-                ):
+                for score, idx in zip(baseline_top5.values, baseline_top5.indices):
                     token = self.tokenizer.decode([idx])
                     print(f"  {token}: {score.item():.3f}")
 
                 print("After steering:")
-                for score, idx in zip(
-                    steered_top5.values, steered_top5.indices
-                ):
+                for score, idx in zip(steered_top5.values, steered_top5.indices):
                     token = self.tokenizer.decode([idx])
                     print(f"  {token}: {score.item():.3f}")
 
@@ -452,9 +465,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
         input_ids: torch.LongTensor = None,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[
-            Union[Cache, List[torch.FloatTensor]]
-        ] = None,
+        past_key_values: Optional[Union[Cache, List[torch.FloatTensor]]] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = False,
@@ -462,11 +473,17 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
         return_dict: Optional[bool] = None,
         cache_position: Optional[torch.LongTensor] = None,
         num_logits_to_keep: int = 0,
+        logits_to_keep: Union[int, torch.Tensor] = 0,
     ) -> Union[Tuple, BaseModelOutputWithPast]:
         if self.use_backup_response:
             forward_fn = self.edit_logit_forward
         else:
             forward_fn = self.steer_forward
+
+        # Normalize keep-args to support both legacy and new API
+        _logits_to_keep = (
+            logits_to_keep if logits_to_keep not in (None, 0) else num_logits_to_keep
+        )
 
         output = forward_fn(
             input_ids,
@@ -479,7 +496,8 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
             cache_position=cache_position,
-            num_logits_to_keep=num_logits_to_keep,
+            num_logits_to_keep=_logits_to_keep,
+            logits_to_keep=_logits_to_keep,
         )
 
         return output
@@ -578,10 +596,7 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
 
                 # Initialize optimization for this batch
                 batch_hs = (
-                    hidden_state[batch_indices]
-                    .clone()
-                    .detach()
-                    .requires_grad_(True)
+                    hidden_state[batch_indices].clone().detach().requires_grad_(True)
                 )
                 original_hs = hidden_state[batch_indices].clone().detach()
                 optimizer = torch.optim.SGD([batch_hs], lr=0.01)
@@ -595,15 +610,11 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
                     # reusing the cached one, so the loss can actually go down.
 
                     if is_polytope:
-                        features_reshaped = features.view(1, -1)
-                        violations = (
-                            torch.matmul(features_reshaped, phi.T) - threshold
-                        )
+                        features_reshaped = features.view(batch_hs.size(0), -1)
+                        violations = torch.matmul(features_reshaped, phi.T) - threshold
                         safety_violation = violations.sum()
                         positive_violations = torch.relu(violations)
-                        positive_violation_penalty = torch.sum(
-                            positive_violations
-                        )
+                        positive_violation_penalty = torch.sum(positive_violations)
                     else:
                         # MLP optimization
                         hidden_output = F.relu(self.hidden_layer(features))
@@ -647,26 +658,18 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
                     features = self.feature_extractor(batch_hs)
 
                     if is_polytope:
-                        final_violations = (
-                            torch.matmul(features, phi.T) - threshold
-                        )
-                        final_positive_violations = torch.relu(
-                            final_violations
-                        )
+                        final_violations = torch.matmul(features, phi.T) - threshold
+                        final_positive_violations = torch.relu(final_violations)
                         final_safety_violation = final_violations.sum()
                     else:
                         hidden_output = F.relu(self.hidden_layer(features))
                         logits = self.classifier(hidden_output)
                         probs = torch.sigmoid(logits)
                         final_violations = -logits
-                        final_positive_violations = torch.relu(
-                            final_violations
-                        )
+                        final_positive_violations = torch.relu(final_violations)
                         final_safety_violation = -torch.sum(probs)
 
-                    final_distance = torch.sum(
-                        torch.abs(batch_hs - original_hs)
-                    )
+                    final_distance = torch.sum(torch.abs(batch_hs - original_hs))
 
                     optimized_hidden_states[batch_indices] = batch_hs.detach()
 
@@ -719,13 +722,8 @@ class SafeRepModel(PreTrainedModel, GenerationMixin):
 
         # Move phi and threshold for polytope models
         if hasattr(safe_model, "phi") and safe_model.phi is not None:
-            safe_model.phi = nn.Parameter(
-                safe_model.phi.to(device=device, dtype=dtype)
-            )
-        if (
-            hasattr(safe_model, "threshold")
-            and safe_model.threshold is not None
-        ):
+            safe_model.phi = nn.Parameter(safe_model.phi.to(device=device, dtype=dtype))
+        if hasattr(safe_model, "threshold") and safe_model.threshold is not None:
             safe_model.threshold = nn.Parameter(
                 safe_model.threshold.to(device=device, dtype=dtype)
             )

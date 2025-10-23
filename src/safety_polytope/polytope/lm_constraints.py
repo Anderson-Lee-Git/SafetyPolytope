@@ -55,6 +55,7 @@ class PolytopeConstraint(torch.nn.Module):
         f_l1_weight=0.1,
         phi_l1_weight=0.0001,
         margin=1.0,
+        num_feature_extractor_layers=1,
     ):
         super().__init__()
         self.model = model
@@ -69,9 +70,8 @@ class PolytopeConstraint(torch.nn.Module):
         self.valid_edges_threshold = valid_edges_threshold
         self.unsafe_weight = unsafe_weight
         self.entropy_assignment = entropy_assignment
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.num_feature_extractor_layers = num_feature_extractor_layers
         self.feature_dim = feature_dim
         self.use_nonlinear = use_nonlinear
         self.feature_extractor = None
@@ -87,24 +87,28 @@ class PolytopeConstraint(torch.nn.Module):
         rep_dim = hs_rep.shape[1]
 
         if self.use_nonlinear:
-            self.feature_extractor = nn.Sequential(
-                nn.Linear(rep_dim, self.feature_dim),
-                nn.ReLU(),
-            ).to(self.device)
+            if self.num_feature_extractor_layers > 1:
+                layers = [
+                    nn.Linear(rep_dim, self.feature_dim),
+                    nn.ReLU(),
+                ]
+                for _ in range(self.num_feature_extractor_layers - 1):
+                    layers.append(nn.Linear(self.feature_dim, self.feature_dim))
+                    layers.append(nn.ReLU())
+                self.feature_extractor = nn.Sequential(*layers).to(self.device)
+            else:
+                self.feature_extractor = nn.Sequential(
+                    nn.Linear(rep_dim, self.feature_dim),
+                    nn.ReLU(),
+                ).to(self.device)
 
             phi_dim = self.feature_dim
         else:
-            self.feature_extractor = nn.Sequential(nn.Identity()).to(
-                self.device
-            )
+            self.feature_extractor = nn.Sequential(nn.Identity()).to(self.device)
             phi_dim = rep_dim
 
-        self.phi = torch.nn.Parameter(
-            torch.randn(num_phi, phi_dim, device=self.device)
-        )
-        self.threshold = torch.nn.Parameter(
-            torch.randn(num_phi, device=self.device)
-        )
+        self.phi = torch.nn.Parameter(torch.randn(num_phi, phi_dim, device=self.device))
+        self.threshold = torch.nn.Parameter(torch.randn(num_phi, device=self.device))
 
         for layer in self.feature_extractor:
             if isinstance(layer, nn.Linear):
@@ -176,14 +180,10 @@ class PolytopeConstraint(torch.nn.Module):
 
         # If there are no unsafe examples, return original values
         if len(unsafe_indices) == 0:
-            current_entropy = self.calculate_entropy(
-                new_max_violation_edges, label
-            )
+            current_entropy = self.calculate_entropy(new_max_violation_edges, label)
             return new_max_violations, new_max_violation_edges, current_entropy
 
-        current_entropy = self.calculate_entropy(
-            new_max_violation_edges, label
-        )
+        current_entropy = self.calculate_entropy(new_max_violation_edges, label)
         entropy = current_entropy
         attempts = 0
         num_valid_edges = 0
@@ -197,9 +197,7 @@ class PolytopeConstraint(torch.nn.Module):
             sorted_violations, sorted_indices = torch.sort(
                 violations[batch_idx], descending=True
             )
-            valid_edges = sorted_indices[
-                sorted_violations > self.valid_edges_threshold
-            ]
+            valid_edges = sorted_indices[sorted_violations > self.valid_edges_threshold]
             num_valid_edges += len(valid_edges)
 
             if len(valid_edges) <= 1:
@@ -215,9 +213,7 @@ class PolytopeConstraint(torch.nn.Module):
             new_entropy = self.calculate_entropy(temp_edges, label)
 
             if new_entropy > entropy:
-                new_max_violations[batch_idx] = violations[
-                    batch_idx, chosen_edge
-                ]
+                new_max_violations[batch_idx] = violations[batch_idx, chosen_edge]
                 new_max_violation_edges[batch_idx] = chosen_edge
                 entropy = new_entropy
 
@@ -253,12 +249,8 @@ class PolytopeConstraint(torch.nn.Module):
                     )
                 )
             else:
-                max_violations, max_violation_edges = torch.max(
-                    violations, dim=1
-                )
-            safe_violations = torch.sum(
-                torch.relu(self.margin + violations), axis=1
-            )
+                max_violations, max_violation_edges = torch.max(violations, dim=1)
+            safe_violations = torch.sum(torch.relu(self.margin + violations), axis=1)
             unsafe_violations = torch.relu(self.margin - max_violations)
 
             # Calculate regularization losses
@@ -288,9 +280,7 @@ class PolytopeConstraint(torch.nn.Module):
                 loss = torch.zeros(batch_size, device=device, dtype=dtype)
 
                 # Distribute regularization terms evenly across all samples
-                reg_term = (
-                    f_l1_term + phi_l1_term - edge_entropy_loss
-                ) / batch_size
+                reg_term = (f_l1_term + phi_l1_term - edge_entropy_loss) / batch_size
 
                 # Set loss for safe samples
                 safe_mask = label == 1
@@ -301,8 +291,7 @@ class PolytopeConstraint(torch.nn.Module):
                 unsafe_mask = label == 0
                 if torch.any(unsafe_mask):
                     loss[unsafe_mask] = (
-                        self.unsafe_weight * unsafe_violations[unsafe_mask]
-                        + reg_term
+                        self.unsafe_weight * unsafe_violations[unsafe_mask] + reg_term
                     )
             else:
                 raise ValueError(f"Unsupported reduction mode: {reduction}")
@@ -359,9 +348,7 @@ class BaselineMLP(torch.nn.Module):
         num_edges=50,
     ):
         super().__init__()
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.feature_extractor = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -413,9 +400,7 @@ class BaselineMLP(torch.nn.Module):
             probs=probs.squeeze(1),  # probability of being safe
             loss=loss,
             entropy_loss=None,
-            additional_params={
-                "bce_loss": loss.item() if loss is not None else None
-            },
+            additional_params={"bce_loss": loss.item() if loss is not None else None},
             violations=None,
             violation_idx=None,
         )

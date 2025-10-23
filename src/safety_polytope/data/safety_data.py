@@ -6,6 +6,7 @@ import tqdm
 from torch.utils.data import DataLoader, Dataset
 
 from safety_polytope.data.beaver_data import get_beaver_dataset
+from safety_polytope.data.wildguard_data import get_wildguard_dataset
 from safety_polytope.data.model_instructions import get_instruction
 
 
@@ -30,6 +31,8 @@ def get_dataset(
         train_data, test_data = get_beaver_dataset(
             dataset_name_or_path, split, category, hint_category
         )
+    elif "wildguard" in dataset_name_or_path:
+        train_data, test_data = get_wildguard_dataset(category, split)
     else:
         raise ValueError(f"Dataset {dataset_name_or_path} not supported.")
     return train_data, test_data
@@ -41,20 +44,35 @@ def format_prompt_response_plain(instruction, category, prompt, response):
     return output
 
 
+def format_prompt_plain(instruction, category, prompt):
+    output = f"{prompt}\n"
+    return output
+
+
+def get_format_fn(dataset_type):
+    if dataset_type == "prompt_response":
+        return format_prompt_response_plain
+    elif dataset_type == "prompt":
+        return format_prompt_plain
+    else:
+        raise ValueError(f"Dataset type {dataset_type} not supported.")
+
+
 class PromptResponseDataset(Dataset):
-    def __init__(self, data, instruction, format_fn):
+    def __init__(self, data, instruction, format_fn, subset_size=1.0):
         self.data = []
         self.label = []
         self.category = []
         self.method = []
+        self.subset_size = subset_size
         self.generate_data(data, instruction, format_fn)
         print(f"Example data: {self.data[0]}")
 
     def __len__(self):
-        return len(self.data)
+        return int(len(self.data) * self.subset_size)
 
     def __getitem__(self, idx):
-        return self.data[idx], self.label[idx]
+        return self.data[idx], self.label[idx], self.category[idx]
 
     def generate_data(self, data, instruction, format_fn):
         desc = "Preparing data"
@@ -74,31 +92,86 @@ class PromptResponseDataset(Dataset):
                     self.method.append(data["method"][idx])
 
 
+class PromptDataset(Dataset):
+    def __init__(self, data, instruction, format_fn, subset_size=1.0):
+        self.data = []
+        self.label = []
+        self.category = []
+        self.method = []
+        self.subset_size = subset_size
+        self.generate_data(data, instruction, format_fn)
+        print(f"Example data: {self.data[0]}")
+
+    def __len__(self):
+        return int(len(self.data) * self.subset_size)
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.label[idx], self.category[idx]
+
+    def generate_data(self, data, instruction, format_fn):
+        desc = "Preparing data"
+        with tqdm.tqdm(total=len(data["prompt"]), desc=desc) as pbar:
+            for idx in range(len(data["prompt"])):
+                pbar.update(1)
+                prompt = data["prompt"][idx]
+                is_safe = data["is_safe"][idx]
+                category = data["category"][idx]
+
+                self.data.append(format_fn(instruction, category, prompt))
+                self.label.append(is_safe)
+                self.category.append(category)
+
+                if "method" in data.keys():
+                    self.method.append(data["method"][idx])
+
+
 class HiddenStatesDataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, subset_size=1.0):
         self.data = data["hidden_states"]
         self.label = data["labels"]
+        self.category = data["categories"]
 
         if isinstance(self.data, np.ndarray):
             self.data = torch.from_numpy(self.data)
         if isinstance(self.label, np.ndarray):
             self.label = torch.from_numpy(self.label)
-
         self.data = self.data.to(dtype=torch.float32)
         self.label = self.label.to(dtype=torch.float32)
+        self.category = self.category
+        self.total_categories = np.unique(self.category).tolist()
+        print(f"Type of category: {type(self.category)}")
+        if subset_size < 1.0:
+            indices = np.random.choice(len(self.data), size=int(len(self.data) * subset_size), replace=False)
+            self.data = self.data[indices]
+            self.label = self.label[indices]
+            self.category = [self.category[i] for i in indices]
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.data[idx], self.label[idx]
+        return self.data[idx], self.label[idx], self.category[idx]
+
+    def summary_stats(self):
+        category_distribution = {k: 0 for k in self.total_categories}
+        label_distribution = {k: 0 for k in [0, 1]}
+        for label in self.label.tolist():
+            label_distribution[label] += 1
+        for cat in self.category:
+            category_distribution[cat] += 1
+        return {
+            "num_samples": len(self.data),
+            "num_categories": len(self.total_categories),
+            "category_distribution": category_distribution,
+            "label_distribution": label_distribution,
+        }
 
 
 def get_hidden_states_dataloader(
-    hidden_states_data, batch_size=32, shuffle=True, num_workers=1
+    hidden_states_data, batch_size=32, shuffle=True, num_workers=1, subset_size=1.0
 ):
     dataloader = DataLoader(
-        HiddenStatesDataset(hidden_states_data),
+        HiddenStatesDataset(hidden_states_data, subset_size=subset_size),
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
@@ -114,11 +187,20 @@ def get_safety_dataloader(
     batch_size=32,
     shuffle=True,
     dataset_type="prompt_response",
+    subset_size=1.0,
 ):
     instruction = get_instruction(model)
 
-    if "BeaverTails" in dataset_name_or_path:
-        dataset = PromptResponseDataset(data, instruction, format_fn)
+    if (
+        "BeaverTails" not in dataset_name_or_path
+        and "wildguard" not in dataset_name_or_path
+    ):
+        raise ValueError(f"Dataset {dataset_name_or_path} not supported.")
+
+    if dataset_type == "prompt_response":
+        dataset = PromptResponseDataset(data, instruction, format_fn, subset_size)
+    elif dataset_type == "prompt":
+        dataset = PromptDataset(data, instruction, format_fn, subset_size)
     else:
         raise ValueError("Dataset not supported.")
 

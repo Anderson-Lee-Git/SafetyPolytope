@@ -1,9 +1,9 @@
 defaults:
   - _self_
-  - dataset: beaver_tails
+  - dataset: wildguard
   - override hydra/launcher: submitit_slurm
 exp_ident: interpret
-model_path: Qwen/Qwen2-1.5B-Instruct
+model_path: /scratch/gpfs/KOROLOVA/cl6486/.cache/huggingface/hub/models--Qwen--Qwen3-4B-Instruct-2507/snapshots/cdbee75f17c01a7cc42f958dc650907174af0554
 total_datapoints: 999999999
 save_hidden_states: True
 batch_size: 1

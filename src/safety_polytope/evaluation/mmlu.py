@@ -28,7 +28,7 @@ from safety_polytope.evaluation.mmlu_categories import (
     categories,
     subcategories,
 )
-from safety_polytope.polytope.safe_rep_model import SafeRepModel
+from safety_polytope.common.load_util import load_safe_rep_model
 
 choices = ["A", "B", "C", "D"]
 log = logging.getLogger("polytope")
@@ -126,26 +126,6 @@ def eval(cfg, subject, model, tokenizer, dev_df, test_df):
 
     log.info("Average accuracy {:.3f} - {}".format(acc, subject))
     return cors, acc, all_probs
-
-
-def load_safe_rep_model(cfg):
-    model = SafeRepModel.from_pretrained(
-        cfg.model_path,
-        polytope_weight_path=cfg.polytope_weight_path,
-        use_backup_response=cfg.use_backup_response,
-        projection=cfg.projection,
-        steer_layer=cfg.steer_layer,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-        trust_remote_code=True,
-        lambda_weight=cfg.lambda_weight,
-        steer_first_n_tokens=cfg.steer_first_n_tokens,
-        safe_violation_weight=cfg.safe_violation_weight,
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        cfg.model_path,
-    )
-    return model, tokenizer
 
 
 def setup_defense(model, defense_method):

@@ -1,7 +1,8 @@
-Metadata-Version: 2.1
-Name: safety-polytope
+Metadata-Version: 2.4
+Name: safety_polytope
 Version: 0.1.0
 Summary: Learning Safety Constraints for Large Language Models (Safety Polytope)
+License: MIT
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -10,29 +11,51 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: accelerate==0.30.0
+Requires-Dist: anthropic
+Requires-Dist: art
+Requires-Dist: boto3
+Requires-Dist: bpe
+Requires-Dist: confection==0.1.4
 Requires-Dist: datasets==2.20.0
+Requires-Dist: datasketch
+Requires-Dist: fschat
+Requires-Dist: google-cloud-aiplatform
+Requires-Dist: google-generativeai
 Requires-Dist: hydra-core==1.3.2
+Requires-Dist: hydra-submitit-launcher==1.2.0
+Requires-Dist: kernels==0.10.2
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: matplotlib
+Requires-Dist: mistralai
 Requires-Dist: nltk==3.9.1
 Requires-Dist: omegaconf==2.3.0
+Requires-Dist: openai>=1.25.1
 Requires-Dist: pandas==2.2.3
+Requires-Dist: pip
+Requires-Dist: ray
 Requires-Dist: scikit-learn==1.6.1
 Requires-Dist: scipy==1.15.2
 Requires-Dist: seaborn==0.13.2
-Requires-Dist: setuptools==68.2.2
+Requires-Dist: sentence_transformers
+Requires-Dist: spacy>=3.7.2
+Requires-Dist: streamlit>=1.50.0
+Requires-Dist: tenacity
 Requires-Dist: tensorflow==2.18.0
+Requires-Dist: torch
+Requires-Dist: torchvision
 Requires-Dist: tqdm==4.66.4
-Requires-Dist: transformers==4.45.2
+Requires-Dist: transformers>=4.45.2
+Requires-Dist: triton==3.4.0
 Requires-Dist: tueplots==0.0.17
 Requires-Dist: umap-learn==0.5.6
-Requires-Dist: hydra-submitit-launcher==1.2.0
-Provides-Extra: vllm
-Requires-Dist: vllm==0.6.3.post1; extra == "vllm"
+Requires-Dist: vllm>=0.6.3.post1
 Provides-Extra: dev
 Requires-Dist: black>=23.1.0; extra == "dev"
 Requires-Dist: isort>=5.12.0; extra == "dev"
 Requires-Dist: flake8>=6.0.0; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+Dynamic: requires-python
 
 # Learning Safety Constraints for LLMs
 

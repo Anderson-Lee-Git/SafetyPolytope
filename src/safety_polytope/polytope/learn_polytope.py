@@ -1,16 +1,22 @@
 import logging
 import os
+from pathlib import Path
+import json
 
 import hydra
 import numpy as np
+from torch.utils.data import DataLoader
 import torch
 import torch.optim as optim
 import tqdm
 from omegaconf import DictConfig
+from omegaconf import OmegaConf
 
 from safety_polytope.common.load_util import set_seed
 from safety_polytope.common.outputs import ModelResult, evaluate_model
-from safety_polytope.data.safety_data import get_hidden_states_dataloader
+from safety_polytope.data.safety_data import (
+    HiddenStatesDataset,
+)
 from safety_polytope.polytope.lm_constraints import (
     BaselineMLP,
     PolytopeConstraint,
@@ -41,7 +47,7 @@ def train_model(
     for epoch in range(num_epochs):
         running_loss = []
         with tqdm.tqdm(total=len(dataloader), disable=disable_tqdm) as pbar:
-            for i, (inputs, labels) in enumerate(dataloader):
+            for i, (inputs, labels, category) in enumerate(dataloader):
                 if isinstance(inputs, torch.Tensor):
                     inputs = inputs.to(model.device)
                 labels = labels.float().to(model.device)
@@ -103,8 +109,31 @@ def main(cfg: DictConfig):
 
     log.info(f"Loading hidden states from {cfg.dataset.hidden_states_path}")
     hs_data = torch.load(cfg.dataset.hidden_states_path, weights_only=False)
-    dataloader = get_hidden_states_dataloader(hs_data["train"])
-    test_dataloader = get_hidden_states_dataloader(hs_data["test"])
+    dataset = HiddenStatesDataset(hs_data["train"], subset_size=cfg.subset_size)
+    dataset_summary = dataset.summary_stats()
+    log.info(
+        f"""
+            Training data summary:
+            Number of samples: {dataset_summary["num_samples"]}
+            Number of categories: {dataset_summary["num_categories"]}
+            Category distribution: {json.dumps(dataset_summary["category_distribution"], indent=4)}
+            Label distribution: {json.dumps(dataset_summary["label_distribution"], indent=4)}
+        """
+    )
+    dataloader = DataLoader(
+        dataset,
+        batch_size=cfg.batch_size,
+        num_workers=cfg.num_workers,
+        shuffle=True,
+    )
+    test_dataset = HiddenStatesDataset(hs_data["test"])
+    test_dataloader = DataLoader(
+        test_dataset,
+        batch_size=cfg.batch_size,
+        num_workers=cfg.num_workers,
+        shuffle=False,
+    )
+    log.info(f"Training on {len(dataloader)} batches of size {dataloader.batch_size}")
 
     if cfg.model_type == "polytope":
         safety_model = PolytopeConstraint(
@@ -121,6 +150,7 @@ def main(cfg: DictConfig):
             f_l1_weight=cfg.f_l1_weight,
             phi_l1_weight=cfg.phi_l1_weight,
             margin=cfg.margin,
+            num_feature_extractor_layers=cfg.num_feature_extractor_layers,
         )
         safety_model.rand_init_phi_theta(
             cfg.dataset.num_phi, x=hs_data["train"]["hidden_states"]
@@ -162,6 +192,19 @@ def main(cfg: DictConfig):
     log.info(f"Test fpr: {test_result.false_positive_rate:.3f}")
     log.info(f"Test fnr: {test_result.false_negative_rate:.3f}")
     log.info(f"Test f1: {test_result.f1_score:.3f}")
+
+    run_summary = {
+        "config": OmegaConf.to_container(cfg, resolve=True),
+        "test_acc": test_result.accuracy,
+        "test_fpr": test_result.false_positive_rate,
+        "test_fnr": test_result.false_negative_rate,
+        "test_f1": None if np.isnan(test_result.f1_score) else test_result.f1_score,
+        "weights_save_path": weight_save_path,
+        "dataset_summary": dataset_summary,
+    }
+
+    with open(Path(result_dir) / "run_summary.json", "w") as f:
+        json.dump(run_summary, f, indent=4)
 
     return test_result.accuracy
 
