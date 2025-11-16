@@ -110,6 +110,11 @@ def main(cfg: DictConfig):
     log.info(f"Loading hidden states from {cfg.dataset.hidden_states_path}")
     hs_data = torch.load(cfg.dataset.hidden_states_path, weights_only=False)
     dataset = HiddenStatesDataset(hs_data["train"], subset_size=cfg.subset_size)
+    if cfg.curate_label_distribution:
+        dataset.sample_with_label_distribution(
+            {0: 1 - cfg.curation.pos_sample_ratio, 1: cfg.curation.pos_sample_ratio},
+            cfg.curation.num_samples,
+        )
     dataset_summary = dataset.summary_stats()
     log.info(
         f"""
@@ -196,8 +201,16 @@ def main(cfg: DictConfig):
     run_summary = {
         "config": OmegaConf.to_container(cfg, resolve=True),
         "test_acc": test_result.accuracy,
-        "test_fpr": test_result.false_positive_rate,
-        "test_fnr": test_result.false_negative_rate,
+        "test_fpr": (
+            None
+            if np.isnan(test_result.false_positive_rate)
+            else test_result.false_positive_rate
+        ),
+        "test_fnr": (
+            None
+            if np.isnan(test_result.false_negative_rate)
+            else test_result.false_negative_rate
+        ),
         "test_f1": None if np.isnan(test_result.f1_score) else test_result.f1_score,
         "weights_save_path": weight_save_path,
         "dataset_summary": dataset_summary,

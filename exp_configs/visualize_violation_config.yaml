@@ -1,0 +1,21 @@
+defaults:
+  - _self_
+  - dataset: beaver_tails
+
+exp_ident: visualize_violation
+seed: 42
+
+# Which split of the hidden states to visualize: "train" or "test"
+split: test
+
+# Fraction of points to sample for plotting (1.0 = all)
+subset_size: 1.0
+
+# Optional hard cap on number of plotted points (null = no cap)
+max_points: null
+
+hydra:
+  run:
+    dir: outputs/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${dataset.short_name}/${now:%Y-%m-%d}/${exp_ident}-${now:%H-%M-%S}

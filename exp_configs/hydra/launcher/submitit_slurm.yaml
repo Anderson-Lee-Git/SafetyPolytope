@@ -1,0 +1,12 @@
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+timeout_min: 61
+cpus_per_task: 1
+tasks_per_node: 1
+nodes: 1
+name: ${exp_ident}
+additional_parameters:
+  mem: 40G
+  gpus-per-node: 1
+setup:
+  - '#SBATCH --requeue'

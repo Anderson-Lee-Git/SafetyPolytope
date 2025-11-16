@@ -2,7 +2,7 @@
 #SBATCH --job-name=increasing_subset_size_learn_polytope
 #SBATCH --output=/scratch/gpfs/KOROLOVA/cl6486/SafetyPolytope/src/logs/increasing_subset_size_learn_polytope_%j.out
 #SBATCH --error=/scratch/gpfs/KOROLOVA/cl6486/SafetyPolytope/src/logs/increasing_subset_size_learn_polytope_%j.err
-#SBATCH --time=6:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mem=20G
 #SBATCH --cpus-per-task=1
 #SBATCH --mail-type=FAIL

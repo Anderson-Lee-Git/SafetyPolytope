@@ -18,6 +18,6 @@ export HF_TOKEN=""
 uv run python src/safety_polytope/harmbench/run_harmbench_pipeline.py \
     --config src/safety_polytope/harmbench/config/pipeline_config.yaml \
     --model qwen_3_4b \
-    --stages 1
+    --stages 1 2 3 4
 
 echo "HarmfulBench pipeline completed"

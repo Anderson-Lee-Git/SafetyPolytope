@@ -141,7 +141,9 @@ class HiddenStatesDataset(Dataset):
         self.total_categories = np.unique(self.category).tolist()
         print(f"Type of category: {type(self.category)}")
         if subset_size < 1.0:
-            indices = np.random.choice(len(self.data), size=int(len(self.data) * subset_size), replace=False)
+            indices = np.random.choice(
+                len(self.data), size=int(len(self.data) * subset_size), replace=False
+            )
             self.data = self.data[indices]
             self.label = self.label[indices]
             self.category = [self.category[i] for i in indices]
@@ -151,6 +153,72 @@ class HiddenStatesDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.data[idx], self.label[idx], self.category[idx]
+
+    def sample_with_label_distribution(
+        self, label_distribution: dict, num_samples: int
+    ):
+        """
+        Subsample the dataset so that the number of samples is num_samples,
+        with the proportions of each label as specified in label_distribution.
+
+        Args:
+            label_distribution: dict with keys 0, 1 and values summing to 1.
+            num_samples: int, total number of samples in the subset.
+        """
+        # Convert tensors to numpy for easier indexing if needed
+        if isinstance(self.label, torch.Tensor):
+            labels_np = self.label.cpu().numpy()
+        else:
+            labels_np = np.array(self.label)
+        # Get indices for each label
+        indices_by_label = {
+            label: np.where(labels_np == label)[0] for label in label_distribution
+        }
+        # Compute the number of samples per label
+        samples_per_label = {
+            label: int(round(ratio * num_samples))
+            for label, ratio in label_distribution.items()
+        }
+
+        # To ensure the sum equals num_samples due to possible rounding
+        sum_samples = sum(samples_per_label.values())
+        if sum_samples != num_samples:
+            # Fix the difference by adding/removing from the largest group
+            diff = num_samples - sum_samples
+            # Choose the label with the largest ratio (fallback: label 1)
+            if diff != 0:
+                sorted_labels = sorted(label_distribution.items(), key=lambda x: -x[1])
+                label_to_adjust = sorted_labels[0][0]
+                samples_per_label[label_to_adjust] += diff
+
+        # Randomly choose samples for each label
+        chosen_indices = []
+        rng = np.random.default_rng()
+        for label, count in samples_per_label.items():
+            available = indices_by_label[label]
+            if len(available) < count:
+                raise ValueError(
+                    f"Not enough samples for label {label} to satisfy requested distribution."
+                )
+            chosen = rng.choice(available, size=count, replace=False)
+            chosen_indices.extend(chosen.tolist())
+
+        # Shuffle selected indices to mix all labels
+        rng.shuffle(chosen_indices)
+
+        # Filter self.data, self.label, self.category
+        if isinstance(self.data, torch.Tensor):
+            self.data = self.data[chosen_indices]
+        else:
+            self.data = [self.data[i] for i in chosen_indices]
+        if isinstance(self.label, torch.Tensor):
+            self.label = self.label[chosen_indices]
+        else:
+            self.label = [self.label[i] for i in chosen_indices]
+        if isinstance(self.category, torch.Tensor):
+            self.category = self.category[chosen_indices]
+        else:
+            self.category = [self.category[i] for i in chosen_indices]
 
     def summary_stats(self):
         category_distribution = {k: 0 for k in self.total_categories}
